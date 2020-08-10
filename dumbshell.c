@@ -43,20 +43,18 @@ CommandStatus lsd(char **args);
 char *lookup_funct[] = {
 	"cdd",
 	"helpd",
-	"exitd",
-	"lsd"};
+	"exitd"};
 
 CommandStatus (*builtin_funct[])(char **) = {
 	&cdd,
 	&helpd,
-	&exitd,
-	&lsd};
+	&exitd};
 
 int builtin_n = sizeof(lookup_funct) / sizeof(lookup_funct[0]);
 
 CommandStatus cdd(char **args)
 {
-	if (chdir(args[0]) == -1)
+	if (chdir(args[1]) == -1)
 	{
 		return INVALID_OPTION;
 	}
@@ -66,7 +64,11 @@ CommandStatus cdd(char **args)
 
 CommandStatus helpd(char **args)
 {
-	printf("Builtin command:\n - helpd\n- cdd\n- exitd\n");
+	printf("Builtin command:\n");
+	for (int i = 0; i < builtin_n; i++)
+	{
+		printf("- %s\n", lookup_funct[i]);
+	}
 	return VALID_COMMAND;
 }
 
@@ -74,35 +76,6 @@ CommandStatus exitd(char **args)
 {
 	exit(EXIT_SUCCESS);
 	return ERROR_COMMAND;
-}
-
-CommandStatus lsd(char **args)
-{
-	DIR *dirp;
-	struct dirent *file;
-	dirp = opendir(".");
-	if (dirp == NULL)
-	{
-		return ERROR_COMMAND;
-	}
-
-	file = readdir(dirp);
-
-	while (file != NULL)
-	{
-		if (file->d_type == 4)
-			printf("DIR: %s\n", file->d_name);
-		else if (file->d_type == 8)
-		{
-			if (access(file->d_name, X_OK) == 0)
-				printf("EXEC: %s\n", file->d_name);
-			else
-				printf("FILE: %s\n", file->d_name);
-		}
-		file = readdir(dirp);
-	}
-
-	return VALID_COMMAND;
 }
 
 // ---------------- LIFE-CYCLE
@@ -127,33 +100,33 @@ InputStatus read_input(char **p_buffer)
 }
 
 // Parse the buffer, putting the command in p_command and args in p_args
-ParseStatus parse(char *p_buffer, char **p_command, char **p_args)
+ParseStatus parse(char *p_buffer, char **p_args)
 {
-	char *p_opts_separator = " ";
-	int opts_index = -1;
+	char *separator = " ";
+	int args_ind = 0;
 
-	*p_command = strtok(p_buffer, p_opts_separator);
-	if (*p_command == NULL)
+	p_args[0] = strtok(p_buffer, separator);
+	if (p_args[0] == NULL)
 		return ERROR_PARSE;
 
 	do
 	{
-		opts_index++;
-		p_args[opts_index] = strtok(NULL, p_opts_separator);
-	} while (p_args[opts_index] != NULL);
+		args_ind++;
+		p_args[args_ind] = strtok(NULL, separator);
+	} while (p_args[args_ind] != NULL);
 
 	return VALID_PARSE;
 }
 
 // Execute external programs creating a child process
-CommandStatus new_process(char *p_command, char **p_args)
+CommandStatus new_process(char **p_args)
 {
 	pid_t pid;
 
 	pid = fork();
 	if (pid == 0)
 	{
-		if (execvp(p_command, p_args) == -1)
+		if (execvp(p_args[0], p_args) == -1)
 		{
 			return ERROR_COMMAND;
 		}
@@ -167,22 +140,20 @@ CommandStatus new_process(char *p_command, char **p_args)
 	return VALID_COMMAND;
 }
 
-
-
 // Check if a command is a builtin or external, and lunchs it
-CommandStatus execute(char *p_command, char **p_args)
+CommandStatus execute(char **p_args)
 {
 	bool external = true;
 	for (int i = 0; i < builtin_n; i++)
 	{
-		if (strcmp(p_command, lookup_funct[i]) == 0)
+		if (strcmp(p_args[0], lookup_funct[i]) == 0)
 		{
 			return builtin_funct[i](p_args);
 		}
 	}
 
 	if (external)
-		return new_process(p_command, p_args);
+		return new_process(p_args);
 
 	return VALID_COMMAND;
 }
@@ -203,9 +174,8 @@ void life_cycle()
 			continue;
 		}
 
-		char *p_command;
 		char **p_args = malloc(sizeof(char *) * COMMAND_TOKENS);
-		switch (parse(p_buffer, &p_command, p_args))
+		switch (parse(p_buffer, p_args))
 		{
 		case (VALID_PARSE):
 			break;
@@ -214,7 +184,7 @@ void life_cycle()
 			continue;
 		}
 
-		switch (execute(p_command, p_args))
+		switch (execute(p_args))
 		{
 		case (VALID_COMMAND):
 			break;
