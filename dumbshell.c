@@ -10,6 +10,9 @@
 #include <dirent.h>
 
 #define COMMAND_TOKENS 16
+#define MAX_PATH_LENGTH 64
+char current_path[MAX_PATH_LENGTH];
+int current_battery;
 
 // ---------------- STATUSES
 
@@ -32,6 +35,51 @@ typedef enum
 	VALID_COMMAND,
 	ERROR_COMMAND
 } CommandStatus;
+
+// ---------------- CUSTOMIZE
+
+int number_of_elements(char *arr)
+{
+	int i = 0;
+	while (arr[i] != NULL)
+		i++;
+	return i;
+}
+
+void update_current_path()
+{
+	FILE *fp = popen("pwd", "r");
+	if (fp == NULL)
+	{
+		perror("no pwd\n");
+		return;
+	}
+
+	fgets(current_path, sizeof(current_path), fp);
+	int last_pos = number_of_elements(current_path) - 1;
+	current_path[last_pos] = '\0';
+	//printf("%s\n", tmp_buffer);
+	pclose(fp);
+}
+
+void update_battery_level()
+{
+	FILE *fp = fopen("/sys/class/power_supply/BAT0/capacity", "rt");
+	if (fp == NULL)
+	{
+		perror("can't find /sys/class/power_supply/BAT0/capacity\n");
+		return;
+	}
+	fscanf(fp, "%d", &current_battery);
+	fclose(fp);
+}
+
+// Prompr display
+void prompt()
+{
+	update_battery_level();
+	printf("%s %d> ", current_path, current_battery);
+}
 
 // ---------------- BUILTIN FUNCTION
 
@@ -58,7 +106,7 @@ CommandStatus cdd(char **args)
 	{
 		return INVALID_OPTION;
 	}
-
+	update_current_path();
 	return VALID_COMMAND;
 }
 
@@ -162,7 +210,7 @@ void life_cycle()
 {
 	while (true)
 	{
-		printf("> ");
+		prompt();
 		char *p_buffer;
 
 		switch (read_input(&p_buffer))
@@ -206,7 +254,8 @@ void life_cycle()
 int main(int argc, char **argv)
 {
 	// Init, configuration
-
+	update_battery_level();
+	update_current_path();
 	// Read, parse, execute
 	life_cycle();
 
