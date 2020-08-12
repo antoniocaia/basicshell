@@ -11,6 +11,7 @@
 
 #define COMMAND_TOKENS 16
 #define MAX_PATH_LENGTH 64
+#define BATTERY_ALLERT_VALUE 30
 char current_path[MAX_PATH_LENGTH];
 int current_battery;
 
@@ -54,7 +55,6 @@ void update_current_path()
 		perror("no pwd\n");
 		return;
 	}
-
 	fgets(current_path, sizeof(current_path), fp);
 	int last_pos = number_of_elements(current_path) - 1;
 	current_path[last_pos] = '\0';
@@ -62,23 +62,33 @@ void update_current_path()
 	pclose(fp);
 }
 
-void update_battery_level()
+bool update_battery_level()
 {
 	FILE *fp = fopen("/sys/class/power_supply/BAT0/capacity", "rt");
 	if (fp == NULL)
 	{
 		perror("can't find /sys/class/power_supply/BAT0/capacity\n");
-		return;
+		return false;
 	}
 	fscanf(fp, "%d", &current_battery);
 	fclose(fp);
+	if (current_battery <= BATTERY_ALLERT_VALUE)
+	{
+		return true;
+	}
+
+	return false;
 }
 
 // Prompr display
 void prompt()
 {
-	update_battery_level();
-	printf("%s %d> ", current_path, current_battery);
+	printf("%s ", current_path);
+	if (update_battery_level())
+	{
+		printf("!%d! ", current_battery);
+	}
+	printf("> ");
 }
 
 // ---------------- BUILTIN FUNCTION
