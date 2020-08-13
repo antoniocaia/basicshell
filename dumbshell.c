@@ -117,24 +117,24 @@ void prompt()
 
 // ---------------- BUILTIN FUNCTION
 
-CommandStatus cdd(char **args);
+CommandStatus cd(char **args);
 CommandStatus helpd(char **args);
 CommandStatus exitd(char **args);
 CommandStatus lsd(char **args);
 
 char *lookup_funct[] = {
-	"cdd",
+	"cd",
 	"helpd",
 	"exitd"};
 
 CommandStatus (*builtin_funct[])(char **) = {
-	&cdd,
+	&cd,
 	&helpd,
 	&exitd};
 
 int builtin_n = sizeof(lookup_funct) / sizeof(lookup_funct[0]);
 
-CommandStatus cdd(char **args)
+CommandStatus cd(char **args)
 {
 	if (chdir(args[1]) == -1)
 	{
