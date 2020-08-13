@@ -22,6 +22,7 @@
 
 char current_path[MAX_PATH_LENGTH];
 int current_battery;
+char current_time[6];
 
 // ---------------- STATUSES
 
@@ -69,6 +70,19 @@ void update_current_path()
 	pclose(fp);
 }
 
+void update_time()
+{
+	FILE *fp = popen("date +'%I:%M'", "r");
+	if (fp == NULL)
+	{
+		perror("no date\n");
+		return;
+	}
+	fgets(current_time, sizeof(current_time), fp);
+	//int last_pos = number_of_elements(current_time) - 1;
+	//current_time[last_pos] = '\0';
+}
+
 bool update_battery_level()
 {
 	FILE *fp = fopen("/sys/class/power_supply/BAT0/capacity", "rt");
@@ -93,6 +107,7 @@ void prompt()
 	char *main_color = LIGTH_BLUE;
 	printf("%sDUMB:", CYAN);
 	printf("%s%s ", main_color, current_path);
+	printf("%s%s ", LIGTH_CYAN, current_time);
 	if (update_battery_level())
 	{
 		printf("%s!%d! ", RED, current_battery);
@@ -275,6 +290,7 @@ int main(int argc, char **argv)
 	// Init, configuration
 	update_battery_level();
 	update_current_path();
+	update_time();
 	// Read, parse, execute
 	life_cycle();
 
