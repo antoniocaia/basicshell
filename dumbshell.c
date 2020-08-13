@@ -12,6 +12,14 @@
 #define COMMAND_TOKENS 16
 #define MAX_PATH_LENGTH 64
 #define BATTERY_ALLERT_VALUE 30
+
+#define RED "\033[0;31m"
+#define BLUE "\033[0;34m"
+#define LIGTH_BLUE "\033[1;34m"
+#define CYAN "\033[0;36m"
+#define LIGTH_CYAN "\033[1;36m"
+#define NC "\033[0m"
+
 char current_path[MAX_PATH_LENGTH];
 int current_battery;
 
@@ -58,7 +66,6 @@ void update_current_path()
 	fgets(current_path, sizeof(current_path), fp);
 	int last_pos = number_of_elements(current_path) - 1;
 	current_path[last_pos] = '\0';
-	//printf("%s\n", tmp_buffer);
 	pclose(fp);
 }
 
@@ -80,15 +87,17 @@ bool update_battery_level()
 	return false;
 }
 
-// Prompr display
+// Prompr displaycd
 void prompt()
 {
-	printf("%s ", current_path);
+	char *main_color = LIGTH_BLUE;
+	printf("%sDUMB:", CYAN);
+	printf("%s%s ", main_color, current_path);
 	if (update_battery_level())
 	{
-		printf("!%d! ", current_battery);
+		printf("%s!%d! ", RED, current_battery);
 	}
-	printf("> ");
+	printf("%s> %s", main_color, NC);
 }
 
 // ---------------- BUILTIN FUNCTION
