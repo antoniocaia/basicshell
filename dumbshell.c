@@ -10,6 +10,19 @@
 #include <dirent.h>
 
 #define COMMAND_TOKENS 16
+#define MAX_PATH_LENGTH 64
+#define BATTERY_ALLERT_VALUE 30
+
+#define RED "\033[0;31m"
+#define BLUE "\033[0;34m"
+#define LIGTH_BLUE "\033[1;34m"
+#define CYAN "\033[0;36m"
+#define LIGTH_CYAN "\033[1;36m"
+#define NC "\033[0m"
+
+char current_path[MAX_PATH_LENGTH];
+int current_battery;
+char current_time[6];
 
 // ---------------- STATUSES
 
@@ -33,32 +46,101 @@ typedef enum
 	ERROR_COMMAND
 } CommandStatus;
 
+// ---------------- CUSTOMIZE
+
+int number_of_elements(char *arr)
+{
+	int i = 0;
+	while (arr[i] != NULL)
+		i++;
+	return i;
+}
+
+void update_current_path()
+{
+	FILE *fp = popen("pwd", "r");
+	if (fp == NULL)
+	{
+		perror("no pwd\n");
+		return;
+	}
+	fgets(current_path, sizeof(current_path), fp);
+	int last_pos = number_of_elements(current_path) - 1;
+	current_path[last_pos] = '\0';
+	pclose(fp);
+}
+
+void update_time()
+{
+	FILE *fp = popen("date +'%I:%M'", "r");
+	if (fp == NULL)
+	{
+		perror("no date\n");
+		return;
+	}
+	fgets(current_time, sizeof(current_time), fp);
+	//int last_pos = number_of_elements(current_time) - 1;
+	//current_time[last_pos] = '\0';
+}
+
+bool update_battery_level()
+{
+	FILE *fp = fopen("/sys/class/power_supply/BAT0/capacity", "rt");
+	if (fp == NULL)
+	{
+		perror("can't find /sys/class/power_supply/BAT0/capacity\n");
+		return false;
+	}
+	fscanf(fp, "%d", &current_battery);
+	fclose(fp);
+	if (current_battery <= BATTERY_ALLERT_VALUE)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+// Prompr displaycd
+void prompt()
+{
+	char *main_color = LIGTH_BLUE;
+	printf("%sDUMB:", CYAN);
+	printf("%s%s ", main_color, current_path);
+	printf("%s%s ", LIGTH_CYAN, current_time);
+	if (update_battery_level())
+	{
+		printf("%s!%d! ", RED, current_battery);
+	}
+	printf("%s> %s", main_color, NC);
+}
+
 // ---------------- BUILTIN FUNCTION
 
-CommandStatus cdd(char **args);
+CommandStatus cd(char **args);
 CommandStatus helpd(char **args);
 CommandStatus exitd(char **args);
 CommandStatus lsd(char **args);
 
 char *lookup_funct[] = {
-	"cdd",
+	"cd",
 	"helpd",
 	"exitd"};
 
 CommandStatus (*builtin_funct[])(char **) = {
-	&cdd,
+	&cd,
 	&helpd,
 	&exitd};
 
 int builtin_n = sizeof(lookup_funct) / sizeof(lookup_funct[0]);
 
-CommandStatus cdd(char **args)
+CommandStatus cd(char **args)
 {
 	if (chdir(args[1]) == -1)
 	{
 		return INVALID_OPTION;
 	}
-
+	update_current_path();
 	return VALID_COMMAND;
 }
 
@@ -162,7 +244,7 @@ void life_cycle()
 {
 	while (true)
 	{
-		printf("> ");
+		prompt();
 		char *p_buffer;
 
 		switch (read_input(&p_buffer))
@@ -206,7 +288,9 @@ void life_cycle()
 int main(int argc, char **argv)
 {
 	// Init, configuration
-
+	update_battery_level();
+	update_current_path();
+	update_time();
 	// Read, parse, execute
 	life_cycle();
 
