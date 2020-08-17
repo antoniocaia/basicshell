@@ -22,8 +22,6 @@
 char current_path[64];
 char *main_color;
 
-//char *notification_color;
-
 int number_of_elements(char *arr)
 {
 	int i = 0;
@@ -102,7 +100,7 @@ void read_input(char **buffer)
 
 	if (bytes_read <= 0)
 	{
-		printf("ERROR");
+		perror("ERROR");
 	}
 
 	if ((*buffer)[bytes_read - 1] == '\n')
@@ -120,7 +118,7 @@ void parse(char *buffer, char **args, char *separator)
 	if (args[index] == NULL)
 	{
 		//CHECK
-		printf("ERROR");
+		perror("ERROR");
 	}
 
 	do
@@ -130,7 +128,6 @@ void parse(char *buffer, char **args, char *separator)
 		args[index] = strtok(NULL, separator);
 	} while (args[index] != NULL);
 }
-
 
 void execute(char **args)
 {
@@ -164,9 +161,10 @@ void execute(char **args)
 int main(int argc, char **argv)
 {
 	// Enviroment
-	char *path_var = getenv("PATH");
-	char **path_args = malloc(sizeof(char *) * 16);
-	//parse(path_var, path_args, ":");
+	char **path_args = malloc(sizeof(char *) * 32);
+	char path_var[255];
+	strcpy(path_var, getenv("PATH"));
+	parse(path_var, path_args, ":");
 
 	// Look
 	update_current_dir_path();
