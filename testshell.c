@@ -19,7 +19,7 @@
 char *main_color = MAIN_COLOR;
 char *notification_color = NOTIF_COLOR;
 
-#define BATTERY_ALLERT_VALUE 30 
+#define BATTERY_ALLERT_VALUE 30
 int current_battery;
 
 char current_time[6];
@@ -63,7 +63,7 @@ void update_current_dir_path()
 		perror("Failed to call pwd with popen");
 	}
 	fgets(current_path, sizeof(current_path), fp);
-	current_path[strlen(current_path)-1] = '\0';
+	current_path[strlen(current_path) - 1] = '\0';
 	pclose(fp);
 }
 
@@ -136,8 +136,8 @@ int read_input(char **buffer)
 	ssize_t bytes_read = getline(buffer, &size, stdin);
 	if (bytes_read <= 0)
 	{
-		perror("Error reading from stdin");
-		return -1;
+		// EOF
+		exit(EXIT_SUCCESS);
 	}
 	else if (bytes_read == 1)
 	{
@@ -166,6 +166,7 @@ int parse(char *buffer, char **args, char *separator)
 
 	do
 	{
+		//printf("'%s'\n", args[index]);
 		index++;
 		args[index] = strtok(NULL, separator);
 	} while (args[index] != NULL);
@@ -190,16 +191,114 @@ void execute(char **args)
 		int status;
 		pid = fork();
 		if (pid == 0)
+		{
 			execvp(args[0], args);
+			perror("ERROR RUNNING CHILD");
+		}
 
-		wait(&status);
-
+		waitpid(pid, &status, 0);
 		if (status != 0)
 			err_status = true;
 		else
 			err_status = false;
 	}
 }
+
+char *parse_next_command(char **buffer, char *end)
+{
+	char *next_command = malloc(256);
+	strncpy(next_command, *buffer, end - *buffer);
+	*buffer = end + 2;
+	printf("%s\n", next_command);
+	return next_command;
+}
+
+void execute_next_command(char *next_command)
+{
+	char **p_args = malloc(sizeof(char *) * 16);
+	parse(next_command, p_args, " ");
+	execute(p_args);
+}
+
+//char ** commands, char **operators, char *separator
+void parse_multiple_commands(char *buffer)
+{
+	// 0 : ;
+	// 1 : &&
+	// -1 : ||
+	int current_operator = 0;
+	int next_operator = 0;
+
+	char *p_seq;
+	char *p_and;
+	char *p_or;
+
+	int c = 0;
+	while (true)
+	{
+		p_seq = strstr(buffer, ";");
+		p_and = strstr(buffer, "&&");
+		p_or = strstr(buffer, "||");
+
+		//printf("---\n%p\n%p\n%p\n", p_seq, p_and, p_or);
+
+		if (p_seq == NULL)
+			p_seq = (char *)-1;
+		if (p_and == NULL)
+			p_and = (char *)-1;
+		if (p_or == NULL)
+			p_or = (char *)-1;
+
+		if (p_seq == (char *)-1 && p_and == (char *)-1 && p_or == (char *)-1)
+			break;
+
+		char *p_end_command;
+		if (p_seq < p_and && p_seq < p_or)
+		{
+			next_operator = 0;
+			p_end_command = p_seq;
+		}
+		else if (p_and < p_seq && p_and < p_or)
+		{
+			next_operator = 1;
+			p_end_command = p_and;
+		}
+		else if (p_or < p_and && p_or < p_seq)
+		{
+			next_operator = -1;
+			p_end_command = p_or;
+		}
+
+		char *next_command = parse_next_command(&buffer, p_end_command);
+		if (current_operator >= 0 && err_status == 0)
+			execute_next_command(next_command);
+		else if (current_operator <= 0 && err_status == 1)
+			execute_next_command(next_command);
+
+		current_operator = next_operator;
+	}
+
+	char *next_command = parse_next_command(&buffer, strchr(buffer, '\0'));
+	if (current_operator >= 0 && err_status == 0)
+		execute_next_command(next_command);
+	else if (current_operator <= 0 && err_status == 1)
+		execute_next_command(next_command);
+}
+
+// if (p_seq != NULL)
+// {
+// 	p_seq[0] = ' ';
+// }
+// if (p_and != NULL)
+// {
+// 	p_and[0] = ' ';
+// 	p_and[1] = ' ';
+// }
+// if (p_or != NULL)
+// {
+// 	p_or[0] = ' ';
+// 	p_or[1] = ' ';
+// }
 
 int main(int argc, char **argv)
 {
@@ -215,6 +314,63 @@ int main(int argc, char **argv)
 	update_time();
 
 	// Loop
+	// while (true)
+	// {
+	// 	terminal();
+	// 	char *buffer;
+	// 	int read_res = read_input(&buffer);
+	// 	if (read_res == -1)
+	// 		continue;
+
+	// 	int index = 0;
+	// 	int last_pos = 0;
+	// 	int status = 0;
+	// 	while (buffer[index] != '\0')
+	// 	{
+	// 		while (buffer[index] != ';' && buffer[index] != '|' && buffer[index] != '&' && buffer[index] != '\0')
+	// 		{
+	// 			index++;
+	// 			if (buffer[index] == ';') status = 0;
+	// 			if (buffer[index] == '&&') status = 0;
+	// 			if (buffer[index] == ';') status = 0;
+	// 		}
+
+	// 		if (status == 0)
+	// 		{
+	// 			// ; run anything
+	// 		}
+	// 		else if (status == 1)
+	// 		{
+	// 			// run && only status is 0
+	// 			if(!err_status){
+	// 				// DO NEXT
+	// 			}
+	// 		}
+	// 		else if (status == -1)
+	// 		{
+	// 			if(err_status){
+	// 				// run || only status is -1
+	// 				// DO NEXT
+	// 			}
+	// 		}
+
+	// 		if (buffer[index] == ';' || buffer[index] == '\0')
+	// 		{
+	// 			int size = index - last_pos;
+	// 			char subbuff[size];
+	// 			memcpy(subbuff, &buffer[last_pos], size);
+	// 			subbuff[size] = '\0';
+	// 			//printf("%s\n", subbuff);
+
+	// 			char **p_args = malloc(sizeof(char *) * 16);
+	// 			parse(subbuff, p_args, " ");
+	// 			execute(p_args);
+
+	// 			index = index + 1;
+	// 			last_pos = index;
+	// 		}
+	// 	}
+	// Loop
 	while (true)
 	{
 		terminal();
@@ -222,9 +378,10 @@ int main(int argc, char **argv)
 		int read_res = read_input(&buffer);
 		if (read_res == -1)
 			continue;
+		parse_multiple_commands(buffer);
 		char **p_args = malloc(sizeof(char *) * 16);
-		parse(buffer, p_args, " ");
-		execute(p_args);
+		//parse(buffer, p_args, " ");
+		//execute(p_args);
 	}
 
 	exit(EXIT_SUCCESS);
