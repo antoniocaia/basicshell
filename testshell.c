@@ -11,43 +11,36 @@
 
 // Custom terminal
 
+#define NO_COLOR "\033[0m"
 #define RED "\033[0;31m"
-#define BLUE "\033[0;34m"
-#define LIGTH_BLUE "\033[1;34m"
-#define CYAN "\033[0;36m"
-#define LIGTH_CYAN "\033[1;36m"
-#define NC "\033[0m"
+#define MAIN_COLOR_SET "\033[1;34m"
+#define NOTIF_COLOR_SET "\033[1;36m"
+char *main_color = MAIN_COLOR_SET;
+char *notification_color = NOTIF_COLOR_SET;
 
-#define COLOR_SET LIGTH_BLUE
 char current_path[64];
-char *main_color;
-
-int number_of_elements(char *arr)
-{
-	int i = 0;
-	while (arr[i] != NULL)
-		i++;
-	return i;
-}
+bool err_status = false;
 
 void update_current_dir_path()
 {
 	FILE *fp = popen("pwd", "r");
 	if (fp == NULL)
 	{
-		perror("no pwd\n");
-		return;
+		perror("Failed to call pwd with popen");
 	}
 	fgets(current_path, sizeof(current_path), fp);
-	int last_pos = number_of_elements(current_path) - 1;
-	current_path[last_pos] = '\0';
 	pclose(fp);
 }
 
 void terminal()
 {
+	if (err_status)
+		notification_color = RED;
+	else
+		notification_color = NOTIF_COLOR_SET;
+
 	printf("%s%s", main_color, current_path);
-	printf("> $ %s", NC);
+	printf("%s> $ %s", notification_color, NO_COLOR);
 }
 
 // Builtin
@@ -72,7 +65,10 @@ void cd(char **args)
 {
 	if (chdir(args[1]) == -1)
 	{
-		// CHECK
+		char buffer[256];
+		snprintf(buffer, sizeof(buffer), "Tried to chdir into %s", args[1]);
+		perror(buffer);
+		err_status = true;
 	}
 	update_current_dir_path();
 }
@@ -91,16 +87,21 @@ void ex(char **args)
 	exit(EXIT_SUCCESS);
 }
 
-// LIFECYCLE
+// Life-cycle
 
-void read_input(char **buffer)
+int read_input(char **buffer)
 {
 	size_t size = 0;
 	ssize_t bytes_read = getline(buffer, &size, stdin);
-
 	if (bytes_read <= 0)
 	{
-		perror("ERROR");
+		perror("Error reading from stdin");
+		return -1;
+	}
+	else if (bytes_read == 1)
+	{
+		// No input
+		return -1;
 	}
 
 	if ((*buffer)[bytes_read - 1] == '\n')
@@ -108,25 +109,26 @@ void read_input(char **buffer)
 		(*buffer)[bytes_read - 1] = '\0';
 		bytes_read--;
 	}
+	return 0;
 }
 
-void parse(char *buffer, char **args, char *separator)
+int parse(char *buffer, char **args, char *separator)
 {
 	int index = 0;
 
 	args[index] = strtok(buffer, separator);
 	if (args[index] == NULL)
 	{
-		//CHECK
-		perror("ERROR");
+		printf("Error parsing with  '%s'", separator);
+		return -1;
 	}
 
 	do
 	{
-		printf("%s\n", args[index]);
 		index++;
 		args[index] = strtok(NULL, separator);
 	} while (args[index] != NULL);
+	return 0;
 }
 
 void execute(char **args)
@@ -152,9 +154,9 @@ void execute(char **args)
 		wait(&status);
 
 		if (status != 0)
-			main_color = RED;
+			err_status = true;
 		else
-			main_color = COLOR_SET;
+			err_status = false;
 	}
 }
 
@@ -168,14 +170,15 @@ int main(int argc, char **argv)
 
 	// Look
 	update_current_dir_path();
-	main_color = COLOR_SET;
 
 	// Loop
 	while (true)
 	{
 		terminal();
 		char *buffer;
-		read_input(&buffer);
+		int read_res = read_input(&buffer);
+		if (read_res == -1)
+			continue;
 		char **p_args = malloc(sizeof(char *) * 16);
 		parse(buffer, p_args, " ");
 		execute(p_args);
