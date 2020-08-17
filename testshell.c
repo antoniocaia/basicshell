@@ -8,6 +8,8 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <dirent.h>
+#define _GNU_SOURCE /* See feature_test_macros(7) */
+#include <string.h>
 
 // Custom terminal
 
@@ -134,6 +136,7 @@ int read_input(char **buffer)
 {
 	size_t size = 0;
 	ssize_t bytes_read = getline(buffer, &size, stdin);
+	buffer[bytes_read - 1] = '\0';
 	if (bytes_read <= 0)
 	{
 		// EOF
@@ -150,13 +153,15 @@ int read_input(char **buffer)
 		(*buffer)[bytes_read - 1] = '\0';
 		bytes_read--;
 	}
+
+	//printf("%s\n", *buffer);
 	return 0;
 }
 
 int parse(char *buffer, char **args, char *separator)
 {
 	int index = 0;
-
+	//printf("%s\n", buffer);
 	args[index] = strtok(buffer, separator);
 	if (args[index] == NULL)
 	{
@@ -193,7 +198,10 @@ void execute(char **args)
 		if (pid == 0)
 		{
 			execvp(args[0], args);
-			perror("ERROR RUNNING CHILD");
+			char buffer[256];
+			snprintf(buffer, sizeof(buffer), "Error execvp command '%s'", args[0]);
+			perror(buffer);
+			err_status = true;
 		}
 
 		waitpid(pid, &status, 0);
@@ -206,10 +214,10 @@ void execute(char **args)
 
 char *parse_next_command(char **buffer, char *end)
 {
-	char *next_command = malloc(256);
+	char *next_command = malloc(end - *buffer + 1);
 	strncpy(next_command, *buffer, end - *buffer);
 	*buffer = end + 2;
-	printf("%s\n", next_command);
+	//printf("%s\n", next_command);
 	return next_command;
 }
 
@@ -269,7 +277,8 @@ void parse_multiple_commands(char *buffer)
 			p_end_command = p_or;
 		}
 
-		char *next_command = parse_next_command(&buffer, p_end_command);
+		char *next_command = calloc(32, sizeof(char));
+		next_command = parse_next_command(&buffer, p_end_command);
 		if (current_operator >= 0 && err_status == 0)
 			execute_next_command(next_command);
 		else if (current_operator <= 0 && err_status == 1)
@@ -278,27 +287,13 @@ void parse_multiple_commands(char *buffer)
 		current_operator = next_operator;
 	}
 
-	char *next_command = parse_next_command(&buffer, strchr(buffer, '\0'));
+	char *next_command = calloc(16, sizeof(char));
+	next_command = parse_next_command(&buffer, buffer + strlen(buffer));
 	if (current_operator >= 0 && err_status == 0)
 		execute_next_command(next_command);
 	else if (current_operator <= 0 && err_status == 1)
 		execute_next_command(next_command);
 }
-
-// if (p_seq != NULL)
-// {
-// 	p_seq[0] = ' ';
-// }
-// if (p_and != NULL)
-// {
-// 	p_and[0] = ' ';
-// 	p_and[1] = ' ';
-// }
-// if (p_or != NULL)
-// {
-// 	p_or[0] = ' ';
-// 	p_or[1] = ' ';
-// }
 
 int main(int argc, char **argv)
 {
@@ -314,63 +309,6 @@ int main(int argc, char **argv)
 	update_time();
 
 	// Loop
-	// while (true)
-	// {
-	// 	terminal();
-	// 	char *buffer;
-	// 	int read_res = read_input(&buffer);
-	// 	if (read_res == -1)
-	// 		continue;
-
-	// 	int index = 0;
-	// 	int last_pos = 0;
-	// 	int status = 0;
-	// 	while (buffer[index] != '\0')
-	// 	{
-	// 		while (buffer[index] != ';' && buffer[index] != '|' && buffer[index] != '&' && buffer[index] != '\0')
-	// 		{
-	// 			index++;
-	// 			if (buffer[index] == ';') status = 0;
-	// 			if (buffer[index] == '&&') status = 0;
-	// 			if (buffer[index] == ';') status = 0;
-	// 		}
-
-	// 		if (status == 0)
-	// 		{
-	// 			// ; run anything
-	// 		}
-	// 		else if (status == 1)
-	// 		{
-	// 			// run && only status is 0
-	// 			if(!err_status){
-	// 				// DO NEXT
-	// 			}
-	// 		}
-	// 		else if (status == -1)
-	// 		{
-	// 			if(err_status){
-	// 				// run || only status is -1
-	// 				// DO NEXT
-	// 			}
-	// 		}
-
-	// 		if (buffer[index] == ';' || buffer[index] == '\0')
-	// 		{
-	// 			int size = index - last_pos;
-	// 			char subbuff[size];
-	// 			memcpy(subbuff, &buffer[last_pos], size);
-	// 			subbuff[size] = '\0';
-	// 			//printf("%s\n", subbuff);
-
-	// 			char **p_args = malloc(sizeof(char *) * 16);
-	// 			parse(subbuff, p_args, " ");
-	// 			execute(p_args);
-
-	// 			index = index + 1;
-	// 			last_pos = index;
-	// 		}
-	// 	}
-	// Loop
 	while (true)
 	{
 		terminal();
@@ -379,9 +317,6 @@ int main(int argc, char **argv)
 		if (read_res == -1)
 			continue;
 		parse_multiple_commands(buffer);
-		char **p_args = malloc(sizeof(char *) * 16);
-		//parse(buffer, p_args, " ");
-		//execute(p_args);
 	}
 
 	exit(EXIT_SUCCESS);
