@@ -8,6 +8,8 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <dirent.h>
+#define _GNU_SOURCE /* See feature_test_macros(7) */
+#include <string.h>
 
 // Custom terminal
 
@@ -19,7 +21,7 @@
 char *main_color = MAIN_COLOR;
 char *notification_color = NOTIF_COLOR;
 
-#define BATTERY_ALLERT_VALUE 30 
+#define BATTERY_ALLERT_VALUE 30
 int current_battery;
 
 char current_time[6];
@@ -63,7 +65,7 @@ void update_current_dir_path()
 		perror("Failed to call pwd with popen");
 	}
 	fgets(current_path, sizeof(current_path), fp);
-	current_path[strlen(current_path)-1] = '\0';
+	current_path[strlen(current_path) - 1] = '\0';
 	pclose(fp);
 }
 
@@ -134,14 +136,14 @@ int read_input(char **buffer)
 {
 	size_t size = 0;
 	ssize_t bytes_read = getline(buffer, &size, stdin);
-	if (bytes_read <= 0)
+	if (bytes_read == -1)
 	{
-		perror("Error reading from stdin");
-		return -1;
+		// EOF
+		exit(EXIT_SUCCESS);
 	}
 	else if (bytes_read == 1)
 	{
-		// No input
+		// Blank line
 		return -1;
 	}
 
@@ -153,10 +155,10 @@ int read_input(char **buffer)
 	return 0;
 }
 
-int parse(char *buffer, char **args, char *separator)
+int string_to_tokens(char *buffer, char **args, char *separator)
 {
 	int index = 0;
-
+	//printf("%s\n", buffer);
 	args[index] = strtok(buffer, separator);
 	if (args[index] == NULL)
 	{
@@ -166,6 +168,7 @@ int parse(char *buffer, char **args, char *separator)
 
 	do
 	{
+		//printf("'%s'\n", args[index]);
 		index++;
 		args[index] = strtok(NULL, separator);
 	} while (args[index] != NULL);
@@ -190,15 +193,108 @@ void execute(char **args)
 		int status;
 		pid = fork();
 		if (pid == 0)
+		{
 			execvp(args[0], args);
-
-		wait(&status);
-
-		if (status != 0)
+			char buffer[256];
+			snprintf(buffer, sizeof(buffer), "Error execvp command '%s'", args[0]);
+			//perror(buffer);
 			err_status = true;
+			exit(EXIT_FAILURE);
+		}
 		else
-			err_status = false;
+		{
+			waitpid(pid, &status, 0);
+			if (status != 0)
+				err_status = true;
+			else
+				err_status = false;
+		}
 	}
+}
+
+void get_next_command(char **buffer, char **next_command, char *end)
+{
+	*next_command = calloc(end - *buffer + 1, sizeof(char));
+	strncpy(*next_command, *buffer, end - *buffer);
+	*buffer = end + 2;
+}
+
+void execute_next_command(char *next_command)
+{
+	char **p_args = calloc(16, sizeof(char *));
+	string_to_tokens(next_command, p_args, " ");
+	execute(p_args);
+}
+
+void check_operator_and_run(int current_operator, char *next_command)
+{
+	if (current_operator >= 0 && err_status == 0)
+		execute_next_command(next_command);
+	else if (current_operator <= 0 && err_status == 1)
+		execute_next_command(next_command);
+}
+
+//char ** commands, char **operators, char *separator
+void parse_line(char *buffer)
+{
+	// 0 : ;
+	// 1 : &&
+	// -1 : ||
+	int current_operator = 0;
+	int next_operator = 0;
+
+	char *p_seq;
+	char *p_and;
+	char *p_or;
+
+	int c = 0;
+	while (true)
+	{
+		p_seq = strstr(buffer, ";");
+		p_and = strstr(buffer, "&&");
+		p_or = strstr(buffer, "||");
+
+		//printf("---\n%p\n%p\n%p\n", p_seq, p_and, p_or);
+		// TODO CHECK BUG!!!
+		if (p_seq == NULL)
+			p_seq = (char *)-1;
+		if (p_and == NULL)
+			p_and = (char *)-1;
+		if (p_or == NULL)
+			p_or = (char *)-1;
+
+		if (p_seq == (char *)-1 && p_and == (char *)-1 && p_or == (char *)-1)
+			break;
+
+		char *p_end_command;
+		if (p_seq < p_and && p_seq < p_or)
+		{
+			next_operator = 0;
+			p_end_command = p_seq;
+		}
+		else if (p_and < p_seq && p_and < p_or)
+		{
+			next_operator = 1;
+			p_end_command = p_and;
+		}
+		else if (p_or < p_and && p_or < p_seq)
+		{
+			next_operator = -1;
+			p_end_command = p_or;
+		}
+
+		//printf("co: %d	err: %d\n", current_operator, err_status);
+		char *next_command;
+		get_next_command(&buffer, &next_command, p_end_command);
+		check_operator_and_run(current_operator, next_command);
+
+		current_operator = next_operator;
+	}
+
+	//printf("co: %d	err: %d\n", current_operator, err_status);
+	char *next_command;
+	get_next_command(&buffer, &next_command, buffer + strlen(buffer));
+	check_operator_and_run(current_operator, next_command);
 }
 
 int main(int argc, char **argv)
@@ -207,7 +303,7 @@ int main(int argc, char **argv)
 	char **path_args = malloc(sizeof(char *) * 32);
 	char path_var[255];
 	strcpy(path_var, getenv("PATH"));
-	parse(path_var, path_args, ":");
+	string_to_tokens(path_var, path_args, ":");
 
 	// Look
 	update_current_dir_path();
@@ -218,13 +314,12 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		terminal();
+		if(feof(stdin)) exit(EXIT_SUCCESS);
 		char *buffer;
 		int read_res = read_input(&buffer);
 		if (read_res == -1)
 			continue;
-		char **p_args = malloc(sizeof(char *) * 16);
-		parse(buffer, p_args, " ");
-		execute(p_args);
+		parse_line(buffer);
 	}
 
 	exit(EXIT_SUCCESS);
