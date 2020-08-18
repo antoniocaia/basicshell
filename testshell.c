@@ -88,23 +88,26 @@ void terminal()
 
 // Builtin
 
-void cd(char **args);
-void help(char **args);
-void ex(char **args);
+void b_cd(char **args);
+void b_help(char **args);
+void b_ex(char **args);
+void b_exec(char **args);
 
 char *lookup_funct[] = {
 	"cd",
 	"help",
-	"ex"};
+	"ex",
+	"exec"};
 
 void (*builtin_funct[])(char **) = {
-	&cd,
-	&help,
-	&ex};
+	&b_cd,
+	&b_help,
+	&b_ex,
+	&b_exec};
 
 int builtin_n = sizeof(lookup_funct) / sizeof(lookup_funct[0]);
 
-void cd(char **args)
+void b_cd(char **args)
 {
 	if (chdir(args[1]) == -1)
 	{
@@ -116,7 +119,7 @@ void cd(char **args)
 	update_current_dir_path();
 }
 
-void help(char **args)
+void b_help(char **args)
 {
 	printf("Builtin command:\n");
 	for (int i = 0; i < builtin_n; i++)
@@ -125,9 +128,21 @@ void help(char **args)
 	}
 }
 
-void ex(char **args)
+void b_ex(char **args)
 {
 	exit(EXIT_SUCCESS);
+}
+
+void b_exec(char **args)
+{
+	args = &args[1];
+	int exit_code = execvp(args[0], args);
+	if (exit_code == -1)
+	{
+		exit(EXIT_FAILURE);
+	} else {
+		exit(EXIT_SUCCESS);
+	}
 }
 
 // Life-cycle
@@ -314,7 +329,8 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		terminal();
-		if(feof(stdin)) exit(EXIT_SUCCESS);
+		if (feof(stdin))
+			exit(EXIT_SUCCESS);
 		char *buffer;
 		int read_res = read_input(&buffer);
 		if (read_res == -1)
