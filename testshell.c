@@ -136,15 +136,14 @@ int read_input(char **buffer)
 {
 	size_t size = 0;
 	ssize_t bytes_read = getline(buffer, &size, stdin);
-	buffer[bytes_read - 1] = '\0';
-	if (bytes_read <= 0)
+	if (bytes_read == -1)
 	{
 		// EOF
 		exit(EXIT_SUCCESS);
 	}
 	else if (bytes_read == 1)
 	{
-		// No input
+		// Blank line
 		return -1;
 	}
 
@@ -153,12 +152,10 @@ int read_input(char **buffer)
 		(*buffer)[bytes_read - 1] = '\0';
 		bytes_read--;
 	}
-
-	//printf("%s\n", *buffer);
 	return 0;
 }
 
-int parse(char *buffer, char **args, char *separator)
+int string_to_tokens(char *buffer, char **args, char *separator)
 {
 	int index = 0;
 	//printf("%s\n", buffer);
@@ -200,36 +197,45 @@ void execute(char **args)
 			execvp(args[0], args);
 			char buffer[256];
 			snprintf(buffer, sizeof(buffer), "Error execvp command '%s'", args[0]);
-			perror(buffer);
+			//perror(buffer);
 			err_status = true;
+			exit(EXIT_FAILURE);
 		}
-
-		waitpid(pid, &status, 0);
-		if (status != 0)
-			err_status = true;
 		else
-			err_status = false;
+		{
+			waitpid(pid, &status, 0);
+			if (status != 0)
+				err_status = true;
+			else
+				err_status = false;
+		}
 	}
 }
 
-char *parse_next_command(char **buffer, char *end)
+void get_next_command(char **buffer, char **next_command, char *end)
 {
-	char *next_command = malloc(end - *buffer + 1);
-	strncpy(next_command, *buffer, end - *buffer);
+	*next_command = calloc(end - *buffer + 1, sizeof(char));
+	strncpy(*next_command, *buffer, end - *buffer);
 	*buffer = end + 2;
-	//printf("%s\n", next_command);
-	return next_command;
 }
 
 void execute_next_command(char *next_command)
 {
-	char **p_args = malloc(sizeof(char *) * 16);
-	parse(next_command, p_args, " ");
+	char **p_args = calloc(16, sizeof(char *));
+	string_to_tokens(next_command, p_args, " ");
 	execute(p_args);
 }
 
+void check_operator_and_run(int current_operator, char *next_command)
+{
+	if (current_operator >= 0 && err_status == 0)
+		execute_next_command(next_command);
+	else if (current_operator <= 0 && err_status == 1)
+		execute_next_command(next_command);
+}
+
 //char ** commands, char **operators, char *separator
-void parse_multiple_commands(char *buffer)
+void parse_line(char *buffer)
 {
 	// 0 : ;
 	// 1 : &&
@@ -249,7 +255,7 @@ void parse_multiple_commands(char *buffer)
 		p_or = strstr(buffer, "||");
 
 		//printf("---\n%p\n%p\n%p\n", p_seq, p_and, p_or);
-
+		// TODO CHECK BUG!!!
 		if (p_seq == NULL)
 			p_seq = (char *)-1;
 		if (p_and == NULL)
@@ -277,22 +283,18 @@ void parse_multiple_commands(char *buffer)
 			p_end_command = p_or;
 		}
 
-		char *next_command = calloc(32, sizeof(char));
-		next_command = parse_next_command(&buffer, p_end_command);
-		if (current_operator >= 0 && err_status == 0)
-			execute_next_command(next_command);
-		else if (current_operator <= 0 && err_status == 1)
-			execute_next_command(next_command);
+		//printf("co: %d	err: %d\n", current_operator, err_status);
+		char *next_command;
+		get_next_command(&buffer, &next_command, p_end_command);
+		check_operator_and_run(current_operator, next_command);
 
 		current_operator = next_operator;
 	}
 
-	char *next_command = calloc(16, sizeof(char));
-	next_command = parse_next_command(&buffer, buffer + strlen(buffer));
-	if (current_operator >= 0 && err_status == 0)
-		execute_next_command(next_command);
-	else if (current_operator <= 0 && err_status == 1)
-		execute_next_command(next_command);
+	//printf("co: %d	err: %d\n", current_operator, err_status);
+	char *next_command;
+	get_next_command(&buffer, &next_command, buffer + strlen(buffer));
+	check_operator_and_run(current_operator, next_command);
 }
 
 int main(int argc, char **argv)
@@ -301,7 +303,7 @@ int main(int argc, char **argv)
 	char **path_args = malloc(sizeof(char *) * 32);
 	char path_var[255];
 	strcpy(path_var, getenv("PATH"));
-	parse(path_var, path_args, ":");
+	string_to_tokens(path_var, path_args, ":");
 
 	// Look
 	update_current_dir_path();
@@ -312,11 +314,12 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		terminal();
+		if(feof(stdin)) exit(EXIT_SUCCESS);
 		char *buffer;
 		int read_res = read_input(&buffer);
 		if (read_res == -1)
 			continue;
-		parse_multiple_commands(buffer);
+		parse_line(buffer);
 	}
 
 	exit(EXIT_SUCCESS);
