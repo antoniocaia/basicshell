@@ -386,6 +386,7 @@ void parse_line(char *buffer, int operator_code)
 		strcat(new_buffer, new_line);
 		//printf("[%s] \n", new_buffer);
 		parse_line(new_buffer, operator_code);
+		//DELICIOUS SPAGHETTI CODE
 		return;
 	}
 
