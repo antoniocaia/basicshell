@@ -222,7 +222,7 @@ void execute_next_command(char *next_command)
 	standard_execute(p_args);
 }
 
-// Check if the operator and the exit code of last command allows this command to run 
+// Check if the operator and the exit code of last command allows this command to run
 void check_code_with_err_then_run(int current_operator_code, char *next_command)
 {
 	if (current_operator_code >= 0 && err_status == 0)
@@ -299,9 +299,16 @@ int string_to_tokens(char *buffer, char **args, char *separator)
 	return 0;
 }
 
-// Run builtin command and external commands forking and execvp 
+// Run builtin command and external commands forking and execvp
 void standard_execute(char **args)
 {
+	bool bang_negate = false;
+	if (strcmp(args[0], "!") == 0)
+	{
+		args = &args[1];
+		bang_negate = true;
+	}
+
 	bool external = true;
 	for (int i = 0; i < builtin_n; i++)
 	{
@@ -332,6 +339,9 @@ void standard_execute(char **args)
 				err_status = false;
 		}
 	}
+
+	if (bang_negate)
+		err_status = 1 - err_status;
 }
 
 // Run commands between ( ) in a special subshell
@@ -363,6 +373,21 @@ void parse_line(char *buffer, int operator_code)
 	int num_of_op = 3;
 	char *operators[num_of_op];
 	char *brack[2];
+
+	if (buffer[strlen(buffer) - 1] == '\\')
+	{
+		printf("> ");
+		char *new_line;
+		read_input(&new_line);
+		
+		char new_buffer[256];
+		buffer[strlen(buffer) - 1] = '\0';
+		strcpy(new_buffer, buffer);
+		strcat(new_buffer, new_line);
+		//printf("[%s] \n", new_buffer);
+		parse_line(new_buffer, operator_code);
+		return;
+	}
 
 	check_for_brackets(buffer, brack);
 
