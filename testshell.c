@@ -8,10 +8,13 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <dirent.h>
-#define _GNU_SOURCE /* See feature_test_macros(7) */
 #include <string.h>
 
-// Custom terminal
+/*
+-------------------------------------------------------
+|                   Custom terminal                   |
+-------------------------------------------------------
+*/
 
 #define NO_COLOR "\033[0m"
 #define RED "\033[0;31m"
@@ -86,7 +89,11 @@ void terminal()
 	printf("%s> $ %s", notification_color, NO_COLOR);
 }
 
-// Builtin
+/*
+-----------------------------------------------
+|                   Builtin                   |
+-----------------------------------------------
+*/
 
 void b_cd(char **args);
 void b_help(char **args);
@@ -140,12 +147,77 @@ void b_exec(char **args)
 	if (exit_code == -1)
 	{
 		exit(EXIT_FAILURE);
-	} else {
+	}
+	else
+	{
 		exit(EXIT_SUCCESS);
 	}
 }
 
-// Life-cycle
+/*
+-----------------------------------------------
+|                   Generic                   |
+-----------------------------------------------
+*/
+
+bool check_for_subshell(char *buffer, char **start, char **end)
+{
+	*start = strchr(buffer, '(');
+	*end = strchr(buffer, ')');
+
+	if (*start != NULL && *end != NULL)
+		return true;
+
+	return false;
+}
+
+char *find_min_pointer(char **pointers, int n)
+{
+	char *min = (char *)-1;
+	for (int i = 0; i < n; i++)
+	{	//printf("p %p \n", pointers[0]);
+		if (pointers[i] < min)
+			min = pointers[i];
+	}
+	return min;
+}
+
+int get_next_operator(char *buffer, char **operators, int num_of_op, char **min)
+{
+	
+	// Init
+	operators[0] = strstr(buffer, ";");
+	operators[1] = strstr(buffer, "&&");
+	operators[2] = strstr(buffer, "||");
+
+	
+	for (int i = 0; i < num_of_op; i++)
+	{
+		//printf("%p\n", operators[i]);
+		if (operators[i] == NULL)
+			operators[i] = (char *)-1;
+	}
+	
+	// exit or go on
+	int i = 0;
+	while (operators[i] == (char *)-1 && i < num_of_op)
+	{
+		i++;
+	}
+	if (i == num_of_op)
+		return -1;
+
+	
+	*min = find_min_pointer(operators, num_of_op);
+	//printf("MIN: %s\n", *min);
+	return 0;
+}
+
+/*
+--------------------------------------------------
+|                   Life-cycle                   |
+--------------------------------------------------
+*/
 
 int read_input(char **buffer)
 {
@@ -173,7 +245,6 @@ int read_input(char **buffer)
 int string_to_tokens(char *buffer, char **args, char *separator)
 {
 	int index = 0;
-	//printf("%s\n", buffer);
 	args[index] = strtok(buffer, separator);
 	if (args[index] == NULL)
 	{
@@ -183,14 +254,13 @@ int string_to_tokens(char *buffer, char **args, char *separator)
 
 	do
 	{
-		//printf("'%s'\n", args[index]);
 		index++;
 		args[index] = strtok(NULL, separator);
 	} while (args[index] != NULL);
 	return 0;
 }
 
-void execute(char **args)
+void standard_execute(char **args)
 {
 	bool external = true;
 	for (int i = 0; i < builtin_n; i++)
@@ -210,9 +280,6 @@ void execute(char **args)
 		if (pid == 0)
 		{
 			execvp(args[0], args);
-			char buffer[256];
-			snprintf(buffer, sizeof(buffer), "Error execvp command '%s'", args[0]);
-			//perror(buffer);
 			err_status = true;
 			exit(EXIT_FAILURE);
 		}
@@ -227,6 +294,31 @@ void execute(char **args)
 	}
 }
 
+void subshell_execute(char **args)
+{
+	pid_t pid;
+	int status;
+	pid = fork();
+	if (pid == 0)
+	{
+		standard_execute(args);
+		exit(EXIT_FAILURE);
+	}
+	else
+	{
+		waitpid(pid, &status, 0);
+		if (status != 0)
+			err_status = true;
+		else
+			err_status = false;
+	}
+}
+
+bool check_subshell(char *next_command)
+{
+	return (next_command[0] == '(' && next_command[strlen(next_command) - 1] == ')');
+}
+
 void get_next_command(char **buffer, char **next_command, char *end)
 {
 	*next_command = calloc(end - *buffer + 1, sizeof(char));
@@ -237,80 +329,120 @@ void get_next_command(char **buffer, char **next_command, char *end)
 void execute_next_command(char *next_command)
 {
 	char **p_args = calloc(16, sizeof(char *));
+	//printf("nex_t_com %s", next_command);
 	string_to_tokens(next_command, p_args, " ");
-	execute(p_args);
+	standard_execute(p_args);
 }
 
-void check_operator_and_run(int current_operator, char *next_command)
+void check_operator_code_and_run(int current_operator_code, char *next_command)
 {
-	if (current_operator >= 0 && err_status == 0)
+	//printf("%d \n", current_operator_code);
+	if (current_operator_code >= 0 && err_status == 0)
 		execute_next_command(next_command);
-	else if (current_operator <= 0 && err_status == 1)
+	else if (current_operator_code <= 0 && err_status == 1)
 		execute_next_command(next_command);
 }
 
-//char ** commands, char **operators, char *separator
-void parse_line(char *buffer)
+int get_next_operator_code(char **operators, char *min)
+{
+	if (min == operators[0])
+		return 0;
+	else if (min == operators[1])
+		return 1;
+	else if (min == operators[2])
+		return -1;
+}
+
+void parse_line(char *buffer, int operator_code)
 {
 	// 0 : ;
 	// 1 : &&
 	// -1 : ||
-	int current_operator = 0;
-	int next_operator = 0;
+	int next_operator_code = 0;
 
-	char *p_seq;
-	char *p_and;
-	char *p_or;
+	int num_of_op = 3;
+	char *operators[num_of_op];
+	char *brack[2];
 
-	int c = 0;
-	while (true)
+	brack[0] = strchr(buffer, '(');
+	brack[1] = strchr(buffer, ')');
+	if (brack[0] == NULL)
+		brack[0] = (char *)-1;
+	if (brack[1] == NULL)
+		brack[1] = (char *)-1;
+
+	//MEM
+	// printf("Brack: %p   %p\n", brack[0], brack[1]);
+	// for (int i = 0; i < num_of_op; i++)
+	// 	printf("%p ", operators[i]);
+	// printf("\n");
+
+	//INPUT
+	//printf("input BUF: %s   Oper: %d\n", buffer, operator_code);
+
+	char *min;
+	if (get_next_operator(buffer, operators, num_of_op, &min) < 0 && brack[0] == (char *)-1)
 	{
-		p_seq = strstr(buffer, ";");
-		p_and = strstr(buffer, "&&");
-		p_or = strstr(buffer, "||");
+		//LOG
+		//printf("Processing simple command\n");
 
-		//printf("---\n%p\n%p\n%p\n", p_seq, p_and, p_or);
-		// TODO CHECK BUG!!!
-		if (p_seq == NULL)
-			p_seq = (char *)-1;
-		if (p_and == NULL)
-			p_and = (char *)-1;
-		if (p_or == NULL)
-			p_or = (char *)-1;
-
-		if (p_seq == (char *)-1 && p_and == (char *)-1 && p_or == (char *)-1)
-			break;
-
-		char *p_end_command;
-		if (p_seq < p_and && p_seq < p_or)
-		{
-			next_operator = 0;
-			p_end_command = p_seq;
-		}
-		else if (p_and < p_seq && p_and < p_or)
-		{
-			next_operator = 1;
-			p_end_command = p_and;
-		}
-		else if (p_or < p_and && p_or < p_seq)
-		{
-			next_operator = -1;
-			p_end_command = p_or;
-		}
-
-		//printf("co: %d	err: %d\n", current_operator, err_status);
 		char *next_command;
-		get_next_command(&buffer, &next_command, p_end_command);
-		check_operator_and_run(current_operator, next_command);
-
-		current_operator = next_operator;
+		//get_next_command(&buffer, &next_command, buffer + strlen(buffer));
+		check_operator_code_and_run(operator_code, buffer);
+		return;
 	}
 
-	//printf("co: %d	err: %d\n", current_operator, err_status);
-	char *next_command;
-	get_next_command(&buffer, &next_command, buffer + strlen(buffer));
-	check_operator_and_run(current_operator, next_command);
+	if (brack[0] < min)
+	{
+		//LOG
+		//printf("Processing brackets \n");
+
+		char *tmp_buffer = calloc(255, sizeof(char));
+		strncpy(tmp_buffer, buffer + 1, brack[1] - buffer - 1);
+		tmp_buffer[strlen(tmp_buffer)] = '\0';
+		buffer = brack[1];
+
+		//MEM
+		//printf("( ): %s\n", tmp_buffer);
+		//printf("BUFFER: %s\n", buffer);
+
+		// process subshell
+		parse_line(tmp_buffer, operator_code);
+
+		// rest of the string
+		char *connector;
+		get_next_operator(buffer, operators, num_of_op, &connector);
+		buffer = buffer + 2;
+
+		//MEM
+		//printf("UP_BUFFER: %s  con: %s\n", buffer, connector);
+		//parse_line(buffer, get_next_operator_code(operators, connector));
+	}
+	else
+	{
+		//LOG
+		// printf("Processing composite \n");
+		// printf(" Actual input of min? %s\n", min);
+		next_operator_code = get_next_operator_code(operators, min);
+
+		//printf("new op coede: %d\n", next_operator_code);
+		char *next_command;
+		get_next_command(&buffer, &next_command, min);
+		//printf("NEX command: %s\n", next_command);
+
+		check_operator_code_and_run(operator_code, next_command);
+
+		buffer = min + 2;
+		//printf("\nNEW_BUFF : %s\n", buffer);
+		parse_line(buffer, next_operator_code);
+	}
 }
+
+/*
+--------------------------------------------
+|                   Main                   |
+--------------------------------------------
+*/
 
 int main(int argc, char **argv)
 {
@@ -331,11 +463,12 @@ int main(int argc, char **argv)
 		terminal();
 		if (feof(stdin))
 			exit(EXIT_SUCCESS);
+
 		char *buffer;
 		int read_res = read_input(&buffer);
 		if (read_res == -1)
 			continue;
-		parse_line(buffer);
+		parse_line(buffer, 0);
 	}
 
 	exit(EXIT_SUCCESS);
