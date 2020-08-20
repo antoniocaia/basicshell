@@ -252,6 +252,27 @@ void check_for_brackets(char *buffer, char **brack)
 		brack[1] = (char *)-1;
 }
 
+int check_line_continuation(char *buffer)
+{
+	if (buffer[strlen(buffer) - 1] == '\\')
+		return -1;
+	else if ((buffer[strlen(buffer) - 1] == '&' && buffer[strlen(buffer) - 2] == '&') || (buffer[strlen(buffer) - 1] == '|' && buffer[strlen(buffer) - 2] == '|'))
+		return 2;
+	else if (buffer[strlen(buffer) - 1] == '|')
+		return 1;
+	return 0;
+}
+
+char *concat_line_continuation(char *buffer, char *new_line, int space_offset)
+{
+	char *new_buffer;
+	new_buffer = calloc(255, sizeof(char));
+	buffer[strlen(buffer) + space_offset] = '\0';
+	strcpy(new_buffer, buffer);
+	strcat(new_buffer, new_line);
+	return new_buffer;
+}
+
 /*
 --------------------------------------------------
 |                   Life-cycle                   |
@@ -369,38 +390,33 @@ void execute_subshell(char *tmp_buffer, int operator_code)
 // CORE FUNCTION for parsing and executing
 void parse_line(char *buffer, int operator_code)
 {
-	int next_operator_code = 0;
-	int num_of_op = 3;
-	char *operators[num_of_op];
-	char *brack[2];
-
-	if (buffer[strlen(buffer) - 1] == '\\')
+	// Check if there is a concatenator at the end of the string
+	int flag_line_cont = check_line_continuation(buffer);
+	if (flag_line_cont != 0)
 	{
 		printf("> ");
 		char *new_line;
 		read_input(&new_line);
-		
-		char new_buffer[256];
-		buffer[strlen(buffer) - 1] = '\0';
-		strcpy(new_buffer, buffer);
-		strcat(new_buffer, new_line);
-		//printf("[%s] \n", new_buffer);
+		char *new_buffer = concat_line_continuation(buffer, new_line, flag_line_cont);
 		parse_line(new_buffer, operator_code);
-		//DELICIOUS SPAGHETTI CODE
+		// DELICIOUS SPAGHETTI CODE
 		return;
 	}
 
+	char *brack[2];
+	char *next_p;
+	int next_operator_code = 0;
+	int num_of_op = 3;
+	char *operators[num_of_op];
 	check_for_brackets(buffer, brack);
 
-	char *next_p;
 	if (get_next_operator(buffer, operators, num_of_op, &next_p) < 0 && brack[0] == (char *)-1)
 	{
+		// Process a single command, no operators or anithing else
 		char *next_command;
 		check_code_with_err_then_run(operator_code, buffer);
-		return;
 	}
-
-	if (brack[0] < next_p)
+	else if (brack[0] < next_p)
 	{
 		// This branch is called when the parser has to deal with brackets ( )
 		char *tmp_buffer = calloc(255, sizeof(char));
@@ -419,7 +435,7 @@ void parse_line(char *buffer, int operator_code)
 	}
 	else
 	{
-		// Code that handle a 'canonical' command
+		// Code that handle a 'canonical' command containing operatos
 		next_operator_code = get_next_operator_code(operators, next_p);
 		char *next_command;
 		get_next_command(&buffer, &next_command, next_p);
