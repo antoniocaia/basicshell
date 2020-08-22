@@ -419,8 +419,7 @@ char *conc_str[] = {
 	";",
 	"|",
 	"||",
-	"&&",
-	"\\"};
+	"&&"};
 
 //TOP
 bool check_ch(char ch)
@@ -440,11 +439,21 @@ bool check_str(char *str)
 	{
 		if (strcmp(str, conc_str[i]) == 0)
 		{
-			printf("-> %s\n", conc_str[i]);
 			return true;
 		}
 	}
 	return false;
+}
+
+int point_len(char *arr)
+{
+	int tmp = 0;
+	while (arr[tmp] != '\0')
+	{
+		tmp++;
+	}
+	tmp--;
+	return tmp;
 }
 
 // Parsing a line
@@ -456,9 +465,25 @@ char **parse_line(char *buffer)
 	int bf_str = 0;
 	int bf_end = 0;
 
+	// Per passare test
 	if (buffer[bf_end] == -1)
 		exit(EXIT_SUCCESS);
 
+	// Check if the string ends with '\' to ask for the rest of the input
+	if (buffer[point_len(buffer)] == '\\')
+	{
+		printf("> ");
+		char *new_line;
+		read_input(&new_line);
+		char *new_buffer;
+		new_buffer = calloc(64, sizeof(char));
+		buffer[strlen(buffer) - 1] = '\0';
+		strcpy(new_buffer, buffer);
+		strcat(new_buffer, new_line);
+		return parse_line(new_buffer);
+	}
+
+	// Parsing
 	while (buffer[bf_end] != '\0')
 	{
 		if (buffer[bf_str] == ' ')
@@ -493,13 +518,13 @@ char **parse_line(char *buffer)
 			bf_str = bf_end;
 			tk_ind++;
 		}
-		else if (buffer[bf_str] == '\\')
-		{
-			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
-			bf_end++;
-			bf_str = bf_end;
-			tk_ind++;
-		}
+		// else if (buffer[bf_str] == '\\')
+		// {
+		// 	insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
+		// 	bf_end++;
+		// 	bf_str = bf_end;
+		// 	tk_ind++;
+		// }
 		else if (buffer[bf_str] == '(' || buffer[bf_str] == ')')
 		{
 			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
@@ -530,74 +555,11 @@ char **parse_line(char *buffer)
 
 	return line_tokens;
 }
-// printf("Buff: %s\n", buffer);
-// // Check if there is a concatenator at the end of the string
-// int flag_line_cont = check_line_continuation(buffer);
-// if (flag_line_cont != 0)
-// {
-// 	printf("> ");
-// 	char *new_line;
-// 	read_input(&new_line);
-// 	char *new_buffer = concat_line_continuation(buffer, new_line, flag_line_cont);
-// 	parse_line(new_buffer, operator_code);
-// 	// DELICIOUS SPAGHETTI CODE
-// 	return;
-// }
-
-// char *brack[2];
-// char *next_p;
-// int next_operator_code = 0;
-// int num_of_op = 4;
-// char *operators[num_of_op];
-// check_for_brackets(buffer, brack);
-
-// if (get_next_operator(buffer, operators, num_of_op, &next_p) < 0 && brack[0] == (char *)-1)
-// {
-// 	// Process a single command, no operators or anithing else
-// 	char *next_command;
-// 	check_code_with_err_then_run(operator_code, buffer);
-// }
-// else if (brack[0] < next_p)
-// {
-// 	// This branch is called when the parser has to deal with brackets ( )
-// 	char *tmp_buffer = calloc(255, sizeof(char));
-// 	strncpy(tmp_buffer, buffer + 1, brack[1] - buffer - 1);
-// 	tmp_buffer[strlen(tmp_buffer)] = '\0';
-// 	buffer = brack[1] + 1;
-
-// 	// process code in a subshell
-// 	subshell_execute(tmp_buffer, operator_code);
-
-// 	// process the remaining commands outside of the subshell
-// 	char *connector;
-// 	get_next_operator(buffer, operators, num_of_op, &connector);
-// 	buffer = buffer + 3;
-// 	parse_line(buffer, get_next_operator_code(operators, connector));
-// }
-// else if (next_p[0] == '|')
-// {
-// 	char *next_command;
-// 	get_next_command(&buffer, &next_command, next_p);
-// 	execute_pipe(next_command, operator_code);
-// }
-// else
-// {
-// 	// Code that handle a 'canonical' command containing operatos
-// 	next_operator_code = get_next_operator_code(operators, next_p);
-// 	char *next_command;
-// 	get_next_command(&buffer, &next_command, next_p);
-// 	check_code_with_err_then_run(operator_code, next_command);
-// 	parse_line(buffer, next_operator_code);
-// }
 
 void execute_line(char **line_tokens)
 {
-	int xd = 0;
-	while (line_tokens[xd] != 0)
-	{
-		//printf("Ex this: %s ", line_tokens[xd]);
-		xd++;
-	}
+	int bang_flag = 0;
+
 	int tk_n = 0;
 	while (line_tokens[tk_n] != 0)
 		tk_n++;
@@ -618,7 +580,6 @@ void execute_line(char **line_tokens)
 			i++;
 			j++;
 		}
-
 		execute_line(line_tokens);
 	}
 	else
@@ -630,7 +591,15 @@ void execute_line(char **line_tokens)
 		while (line_tokens[line_ind] != 0)
 		{
 			//printf(" OUT [%s]\n", line_tokens[line_ind]);
-			if (strcmp(line_tokens[line_ind], "||") == 0)
+			if (strcmp(line_tokens[line_ind], "!") == 0)
+			{
+				bang_flag = 1;
+			}
+			else if (strcmp(line_tokens[line_ind], ";") == 0)
+			{
+				allowed_to_exec = true;
+			}
+			else if (strcmp(line_tokens[line_ind], "||") == 0)
 			{
 				if (exit_code != 0)
 					allowed_to_exec = true;
@@ -658,6 +627,14 @@ void execute_line(char **line_tokens)
 				}
 				exit_code = subshell_execute(sub_line_tokens);
 				line_ind = i;
+				if (bang_flag == 1)
+				{
+					bang_flag = 0;
+					if (exit_code == 0)
+						exit_code = 1;
+					else
+						exit_code = 0;
+				}
 			}
 			else
 			{
@@ -666,9 +643,19 @@ void execute_line(char **line_tokens)
 					char **p_args = calloc(16, sizeof(char *));
 					tokenizer(line_tokens[line_ind], p_args, " ");
 					exit_code = standard_execute(p_args);
+					if (bang_flag == 1)
+					{
+						bang_flag = 0;
+						if (exit_code == 0)
+							exit_code = 1;
+						else
+							exit_code = 0;
+					}
 				}
 			}
 			line_ind++;
+
+			//printf(" * [%d]\n", exit_code);
 		}
 	}
 }
