@@ -172,116 +172,80 @@ void b_exec(char **args)
 ------------------------------------------------------
 */
 
-// Return the smaller address of a list of operators (the "next" one in the line to be processed)
-char *find_smaller_p_address(char **pointers, int n)
+char spec_chs[] = {
+	'!',
+	'(',
+	')',
+	';',
+	'&',
+	'|',
+	'\\',
+	'\0'};
+
+char conc_chs[] = {
+	';',
+	'|',
+	'&',
+	'\\'};
+
+char *conc_str[] = {
+	";",
+	"|",
+	"||",
+	"&&"};
+
+
+int update_exit_bang(int *bang_flag, int exit_code)
 {
-	char *min = (char *)-1;
-	for (int i = 0; i < n; i++)
+	if (*bang_flag == 1)
 	{
-		if (pointers[i] < min)
-			min = pointers[i];
+		*bang_flag = 0;
+		if (exit_code == 0)
+			return 1;
+		else
+			return 0;
 	}
-	return min;
+	return exit_code;
 }
 
-// Check if there are operators in the string (buffer)
-// Return -1 if no operator is found, otherwise the address of the next one
-int get_next_operator(char *buffer, char **operators, int num_of_op, char **next_p)
+bool check_ch(char ch)
 {
-	// Init
-	operators[0] = strstr(buffer, ";");
-	operators[1] = strstr(buffer, "&&");
-	operators[2] = strstr(buffer, "||");
-	operators[3] = strstr(buffer, "|");
-
-	for (int i = 0; i < num_of_op; i++)
+	for (int i = 0; i < sizeof(spec_chs); i++)
 	{
-		if (operators[i] == NULL)
-			operators[i] = (char *)-1;
+		if (ch == spec_chs[i])
+			return true;
 	}
+	return false;
+}
 
-	// exit or go on
-	int i = 0;
-	while (operators[i] == (char *)-1 && i < num_of_op)
+bool check_str(char *str)
+{
+	for (int i = 0; i < sizeof(conc_str) / sizeof(char *); i++)
 	{
-		i++;
+		if (strcmp(str, conc_str[i]) == 0)
+		{
+			return true;
+		}
 	}
-	if (i == num_of_op)
-		return -1;
-
-	*next_p = find_smaller_p_address(operators, num_of_op);
-	return 0;
+	return false;
 }
 
-// Extrapolates command, remove OPERATOR
-void get_next_command(char **buffer, char **next_command, char *end)
+int point_len(char *arr)
 {
-	*next_command = calloc(end - *buffer + 1, sizeof(char));
-	strncpy(*next_command, *buffer, end - *buffer);
-
-	if (end[0] == ';')
-		*buffer = end + 1;
-	else
-		*buffer = end + 2;
+	int tmp = 0;
+	while (arr[tmp] != '\0')
+	{
+		tmp++;
+	}
+	tmp--;
+	return tmp;
 }
 
-// Tokenize and run command
-void execute_next_command(char *next_command)
+void insert_token(char *buffer, int bf_str, int bf_end, char **line_tokens)
 {
-	char **p_args = calloc(16, sizeof(char *));
-	tokenizer(next_command, p_args, " ");
-	standard_execute(p_args);
-}
-
-// Check if the operator and the exit code of last command allows this command to run
-void check_code_with_err_then_run(int current_operator_code, char *next_command)
-{
-	if (current_operator_code >= 0 && failed_exec == 0)
-		execute_next_command(next_command);
-	else if (current_operator_code <= 0 && failed_exec == 1)
-		execute_next_command(next_command);
-}
-
-int get_next_operator_code(char **operators, char *next_p)
-{
-	// [0  ;]      [1  &&]      [-1  ||]
-	if (next_p == operators[0])
-		return 0;
-	else if (next_p == operators[1])
-		return 1;
-	else if (next_p == operators[2])
-		return -1;
-}
-
-void check_for_brackets(char *buffer, char **brack)
-{
-	brack[0] = strchr(buffer, '(');
-	brack[1] = strchr(buffer, ')');
-	if (brack[0] == NULL)
-		brack[0] = (char *)-1;
-	if (brack[1] == NULL)
-		brack[1] = (char *)-1;
-}
-
-int check_line_continuation(char *buffer)
-{
-	if (buffer[strlen(buffer) - 1] == '\\')
-		return -1;
-	else if ((buffer[strlen(buffer) - 1] == '&' && buffer[strlen(buffer) - 2] == '&') || (buffer[strlen(buffer) - 1] == '|' && buffer[strlen(buffer) - 2] == '|'))
-		return 2;
-	else if (buffer[strlen(buffer) - 1] == '|')
-		return 1;
-	return 0;
-}
-
-char *concat_line_continuation(char *buffer, char *new_line, int space_offset)
-{
-	char *new_buffer;
-	new_buffer = calloc(255, sizeof(char));
-	buffer[strlen(buffer) + space_offset] = '\0';
-	strcpy(new_buffer, buffer);
-	strcat(new_buffer, new_line);
-	return new_buffer;
+	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
+	*line_tokens = calloc(str_len, sizeof(char));
+	strncpy(*line_tokens, &buffer[bf_str], str_len);
 }
 
 /*
@@ -388,73 +352,6 @@ int subshell_execute(char **sub_line_tokens)
 	}
 }
 
-//TOP
-void insert_token(char *buffer, int bf_str, int bf_end, char **line_tokens)
-{
-	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
-	*line_tokens = calloc(str_len, sizeof(char));
-	strncpy(*line_tokens, &buffer[bf_str], str_len);
-}
-
-// TOP
-char spec_chs[] = {
-	'!',
-	'(',
-	')',
-	';',
-	'&',
-	'|',
-	'\\',
-	'\0'};
-
-// TOP
-char conc_chs[] = {
-	';',
-	'|',
-	'&',
-	'\\'};
-
-// TOP
-char *conc_str[] = {
-	";",
-	"|",
-	"||",
-	"&&"};
-
-//TOP
-bool check_ch(char ch)
-{
-	for (int i = 0; i < sizeof(spec_chs); i++)
-	{
-		if (ch == spec_chs[i])
-			return true;
-	}
-	return false;
-}
-
-//TOP
-bool check_str(char *str)
-{
-	for (int i = 0; i < sizeof(conc_str) / sizeof(char *); i++)
-	{
-		if (strcmp(str, conc_str[i]) == 0)
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-int point_len(char *arr)
-{
-	int tmp = 0;
-	while (arr[tmp] != '\0')
-	{
-		tmp++;
-	}
-	tmp--;
-	return tmp;
-}
 
 // Parsing a line
 char **parse_line(char *buffer)
@@ -483,7 +380,7 @@ char **parse_line(char *buffer)
 		return parse_line(new_buffer);
 	}
 
-	// Parsing
+	// Parsing different chars
 	while (buffer[bf_end] != '\0')
 	{
 		if (buffer[bf_str] == ' ')
@@ -518,13 +415,6 @@ char **parse_line(char *buffer)
 			bf_str = bf_end;
 			tk_ind++;
 		}
-		// else if (buffer[bf_str] == '\\')
-		// {
-		// 	insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
-		// 	bf_end++;
-		// 	bf_str = bf_end;
-		// 	tk_ind++;
-		// }
 		else if (buffer[bf_str] == '(' || buffer[bf_str] == ')')
 		{
 			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
@@ -541,18 +431,16 @@ char **parse_line(char *buffer)
 		}
 		else
 		{
+			// Standard command
 			bf_end++;
 			while (!check_ch(buffer[bf_end]))
-			{
-				//printf("%d ", buffer[bf_end]);
 				bf_end++;
-			}
+
 			insert_token(buffer, bf_str, bf_end - 1, &line_tokens[tk_ind]);
 			bf_str = bf_end;
 			tk_ind++;
 		}
 	}
-
 	return line_tokens;
 }
 
@@ -590,7 +478,6 @@ void execute_line(char **line_tokens)
 		int line_ind = 0;
 		while (line_tokens[line_ind] != 0)
 		{
-			//printf(" OUT [%s]\n", line_tokens[line_ind]);
 			if (strcmp(line_tokens[line_ind], "!") == 0)
 			{
 				bang_flag = 1;
@@ -627,14 +514,8 @@ void execute_line(char **line_tokens)
 				}
 				exit_code = subshell_execute(sub_line_tokens);
 				line_ind = i;
-				if (bang_flag == 1)
-				{
-					bang_flag = 0;
-					if (exit_code == 0)
-						exit_code = 1;
-					else
-						exit_code = 0;
-				}
+				// TODO refactor
+				exit_code = update_exit_bang(&bang_flag, exit_code);
 			}
 			else
 			{
@@ -643,19 +524,11 @@ void execute_line(char **line_tokens)
 					char **p_args = calloc(16, sizeof(char *));
 					tokenizer(line_tokens[line_ind], p_args, " ");
 					exit_code = standard_execute(p_args);
-					if (bang_flag == 1)
-					{
-						bang_flag = 0;
-						if (exit_code == 0)
-							exit_code = 1;
-						else
-							exit_code = 0;
-					}
+					// TODO refactor
+					exit_code = update_exit_bang(&bang_flag, exit_code);
 				}
 			}
 			line_ind++;
-
-			//printf(" * [%d]\n", exit_code);
 		}
 	}
 }
@@ -697,10 +570,3 @@ int main(int argc, char **argv)
 
 	exit(EXIT_SUCCESS);
 }
-
-//
-// int xd = 0;
-// while(sub_line_tokens[xd] != 0){
-// 	printf(" - [%s] ", sub_line_tokens[xd]);
-// 	xd++;
-// }
