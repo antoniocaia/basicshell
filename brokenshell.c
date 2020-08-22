@@ -20,6 +20,7 @@ bool failed_exec = false;
 
 int tokenizer(char *buffer, char **args, char *separator);
 int standard_execute(char **args);
+void execute_line(char **line_tokens);
 
 /*
 -------------------------------------------------------
@@ -352,7 +353,6 @@ int standard_execute(char **args)
 			execvp(args[0], args);
 			exit(EXIT_FAILURE);
 		}
-		else
 		{
 			waitpid(pid, &status, 0);
 			if (status != 0)
@@ -366,14 +366,14 @@ int standard_execute(char **args)
 }
 
 // Run commands between ( ) in a special subshell
-void execute_subshell(char *tmp_buffer, int operator_code)
+int subshell_execute(char **sub_line_tokens)
 {
 	pid_t pid;
 	int status;
 	pid = fork();
 	if (pid == 0)
 	{
-		//parse_line(tmp_buffer, operator_code);
+		execute_line(sub_line_tokens);
 		exit(EXIT_SUCCESS);
 	}
 	else
@@ -383,6 +383,8 @@ void execute_subshell(char *tmp_buffer, int operator_code)
 			failed_exec = true;
 		else
 			failed_exec = false;
+
+		return status;
 	}
 }
 
@@ -528,10 +530,6 @@ char **parse_line(char *buffer)
 
 	return line_tokens;
 }
-// printf("%s\n", line_tokens[3]);
-// printf("%s\n", line_tokens[4]);
-// printf("%s\n", line_tokens[5]);
-// // INPUT:
 // printf("Buff: %s\n", buffer);
 // // Check if there is a concatenator at the end of the string
 // int flag_line_cont = check_line_continuation(buffer);
@@ -568,7 +566,7 @@ char **parse_line(char *buffer)
 // 	buffer = brack[1] + 1;
 
 // 	// process code in a subshell
-// 	execute_subshell(tmp_buffer, operator_code);
+// 	subshell_execute(tmp_buffer, operator_code);
 
 // 	// process the remaining commands outside of the subshell
 // 	char *connector;
@@ -594,6 +592,12 @@ char **parse_line(char *buffer)
 
 void execute_line(char **line_tokens)
 {
+	int xd = 0;
+	while (line_tokens[xd] != 0)
+	{
+		//printf("Ex this: %s ", line_tokens[xd]);
+		xd++;
+	}
 	int tk_n = 0;
 	while (line_tokens[tk_n] != 0)
 		tk_n++;
@@ -625,6 +629,7 @@ void execute_line(char **line_tokens)
 		int line_ind = 0;
 		while (line_tokens[line_ind] != 0)
 		{
+			//printf(" OUT [%s]\n", line_tokens[line_ind]);
 			if (strcmp(line_tokens[line_ind], "||") == 0)
 			{
 				if (exit_code != 0)
@@ -639,11 +644,25 @@ void execute_line(char **line_tokens)
 				else
 					allowed_to_exec = false;
 			}
+			else if (strcmp(line_tokens[line_ind], "(") == 0)
+			{
+				int i = line_ind + 1;
+				int j = 0;
+				char **sub_line_tokens = calloc(64, sizeof(char *));
+				while (strcmp(line_tokens[i], ")") != 0)
+				{
+					//printf(" * [%s]\n", line_tokens[i]);
+					sub_line_tokens[j] = line_tokens[i];
+					i++;
+					j++;
+				}
+				exit_code = subshell_execute(sub_line_tokens);
+				line_ind = i;
+			}
 			else
 			{
 				if (allowed_to_exec)
 				{
-					//printf("[%s]\n", line_tokens[line_ind]);
 					char **p_args = calloc(16, sizeof(char *));
 					tokenizer(line_tokens[line_ind], p_args, " ");
 					exit_code = standard_execute(p_args);
@@ -691,3 +710,10 @@ int main(int argc, char **argv)
 
 	exit(EXIT_SUCCESS);
 }
+
+//
+// int xd = 0;
+// while(sub_line_tokens[xd] != 0){
+// 	printf(" - [%s] ", sub_line_tokens[xd]);
+// 	xd++;
+// }
