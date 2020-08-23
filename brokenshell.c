@@ -10,11 +10,10 @@
 #include <dirent.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
-#define INPUT_PIPE 1
-#define OUTPUT_PIPE 0
-#define STDIN_FD 0
-#define STDOUT_FD 1
+#define WRITE_END 1
+#define READ_END 0
 
 bool failed_exec = false;
 
@@ -167,6 +166,58 @@ void b_exec(char **args)
 }
 
 /*
+----------------------------------------------
+|                   Piping                   |
+----------------------------------------------
+*/
+
+#define WRITE_END 1
+#define READ_END 0
+
+void piping_chain(char **commands_list)
+{
+	int i = 0;
+	int read_from_here = STDIN_FILENO;
+	pid_t pid;
+	int fd[2];
+
+	while (commands_list[i] != NULL)
+	{
+		char **cmd = calloc(16, sizeof(char *));
+		tokenizer(commands_list[i], cmd, " ");
+
+		pipe(fd);
+		pid = fork();
+
+		//CHECK FOR REDIRECTOR TYPE
+
+		if (pid == 0)
+		{
+			// Replace stdin fd with my last output fd
+			dup2(read_from_here, STDIN_FILENO);
+
+			// Is this teh last pipe chain command? If yes, replace stdout, if no, just use stdout
+			if (commands_list[i + 2] != NULL)
+				dup2(fd[WRITE_END], STDOUT_FILENO);
+
+			//TODO: understand why I have to close ends
+			close(fd[READ_END]);
+			execvp(cmd[0], cmd);
+			fprintf(stderr, "Failed to execvp '%s'\n", cmd[0]);
+			exit(EXIT_FAILURE);
+		}
+		else
+		{
+			int status;
+			waitpid(pid, &status, 0);
+			// after the child has ended, save the fd so the next istruction can read the last output
+			read_from_here = fd[READ_END];
+			close(fd[WRITE_END]);
+		}
+		i = i + 2;
+	}
+}
+/*
 ------------------------------------------------------
 |                   Parse-specific                   |
 ------------------------------------------------------
@@ -194,7 +245,7 @@ char *conc_str[] = {
 	"||",
 	"&&"};
 
-
+// DIsGuStaNg
 int update_exit_bang(int *bang_flag, int exit_code)
 {
 	if (*bang_flag == 1)
@@ -351,7 +402,6 @@ int subshell_execute(char **sub_line_tokens)
 		return status;
 	}
 }
-
 
 // Parsing a line
 char **parse_line(char *buffer)
@@ -521,11 +571,26 @@ void execute_line(char **line_tokens)
 			{
 				if (allowed_to_exec)
 				{
-					char **p_args = calloc(16, sizeof(char *));
-					tokenizer(line_tokens[line_ind], p_args, " ");
-					exit_code = standard_execute(p_args);
-					// TODO refactor
-					exit_code = update_exit_bang(&bang_flag, exit_code);
+					// check for pipe/redirect
+					if (strcmp(line_tokens[line_ind + 1], "|") == 0)
+					{
+						char **pipe_chain = calloc(4, sizeof(char *));
+						pipe_chain[0] = line_tokens[line_ind];
+						pipe_chain[1] = line_tokens[line_ind + 1];
+						pipe_chain[2] = line_tokens[line_ind + 2];
+						printf("Init good \n");
+
+						piping_chain(pipe_chain);
+						line_ind = line_ind + 2;
+					}
+					else
+					{
+						char **p_args = calloc(16, sizeof(char *));
+						tokenizer(line_tokens[line_ind], p_args, " ");
+						exit_code = standard_execute(p_args);
+						// TODO refactor
+						exit_code = update_exit_bang(&bang_flag, exit_code);
+					}
 				}
 			}
 			line_ind++;
@@ -547,7 +612,7 @@ int main(int argc, char **argv)
 	strcpy(path_var, getenv("PATH"));
 	tokenizer(path_var, path_args, ":");
 
-	// Look
+	// Aspect
 	update_current_dir_path();
 	update_battery_level();
 	update_time();
@@ -556,9 +621,6 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		terminal();
-		// if (feof(stdin))
-		// 	exit(EXIT_SUCCESS);
-
 		char *buffer;
 		int read_res = read_input(&buffer);
 		if (read_res == -1)
