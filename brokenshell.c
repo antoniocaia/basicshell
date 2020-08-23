@@ -174,14 +174,16 @@ void b_exec(char **args)
 #define WRITE_END 1
 #define READ_END 0
 
-void piping_chain(char **commands_list)
+int piping_chain(char **commands_list)
 {
 	int i = 0;
 	int read_from_here = STDIN_FILENO;
 	pid_t pid;
 	int fd[2];
 
-	while (commands_list[i] != NULL)
+	int status;
+
+	while (commands_list[i] != 0)
 	{
 		char **cmd = calloc(16, sizeof(char *));
 		tokenizer(commands_list[i], cmd, " ");
@@ -189,7 +191,7 @@ void piping_chain(char **commands_list)
 		pipe(fd);
 		pid = fork();
 
-		//CHECK FOR REDIRECTOR TYPE
+		//CHECK FOR REDIRECTOR TYPE???
 
 		if (pid == 0)
 		{
@@ -197,7 +199,7 @@ void piping_chain(char **commands_list)
 			dup2(read_from_here, STDIN_FILENO);
 
 			// Is this teh last pipe chain command? If yes, replace stdout, if no, just use stdout
-			if (commands_list[i + 2] != NULL)
+			if (commands_list[i + 2] != 0)
 				dup2(fd[WRITE_END], STDOUT_FILENO);
 
 			//TODO: understand why I have to close ends
@@ -208,7 +210,6 @@ void piping_chain(char **commands_list)
 		}
 		else
 		{
-			int status;
 			waitpid(pid, &status, 0);
 			// after the child has ended, save the fd so the next istruction can read the last output
 			read_from_here = fd[READ_END];
@@ -216,11 +217,13 @@ void piping_chain(char **commands_list)
 		}
 		i = i + 2;
 	}
+	return status;
 }
+
 /*
-------------------------------------------------------
-|                   Parse-specific                   |
-------------------------------------------------------
+---------------------------------------------------------------
+|                   Parse and exec generics                   |
+---------------------------------------------------------------
 */
 
 char spec_chs[] = {
@@ -246,6 +249,7 @@ char *conc_str[] = {
 	"&&"};
 
 // DIsGuStaNg
+// TODO refactor
 int update_exit_bang(int *bang_flag, int exit_code)
 {
 	if (*bang_flag == 1)
@@ -297,6 +301,24 @@ void insert_token(char *buffer, int bf_str, int bf_end, char **line_tokens)
 	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
 	*line_tokens = calloc(str_len, sizeof(char));
 	strncpy(*line_tokens, &buffer[bf_str], str_len);
+}
+
+char **get_pipe_chain(char **line_tokens, int line_ind, int *offset)
+{
+	char **pipe_chain = calloc(32, sizeof(char *));
+	int ind = 0;
+	int off = 1;
+	while (line_tokens[line_ind + off] != NULL && strcmp(line_tokens[line_ind + off], "|") == 0)
+	{
+		pipe_chain[ind] = line_tokens[line_ind + off - 1];
+		ind++;
+		pipe_chain[ind] = line_tokens[line_ind + off];
+		ind++;
+		off = off + 2;
+	}
+	pipe_chain[ind] = line_tokens[line_ind + off - 1];
+	*offset = ind;
+	return pipe_chain;
 }
 
 /*
@@ -430,7 +452,8 @@ char **parse_line(char *buffer)
 		return parse_line(new_buffer);
 	}
 
-	// Parsing different chars
+	// Parsing.
+	// It's ugly, but let me change and add operators easily. Will refactor at the end.
 	while (buffer[bf_end] != '\0')
 	{
 		if (buffer[bf_str] == ' ')
@@ -557,7 +580,6 @@ void execute_line(char **line_tokens)
 				char **sub_line_tokens = calloc(64, sizeof(char *));
 				while (strcmp(line_tokens[i], ")") != 0)
 				{
-					//printf(" * [%s]\n", line_tokens[i]);
 					sub_line_tokens[j] = line_tokens[i];
 					i++;
 					j++;
@@ -572,28 +594,17 @@ void execute_line(char **line_tokens)
 				if (allowed_to_exec)
 				{
 					// check for pipe/redirect
-					if (line_tokens[line_ind + 1] != NULL && strcmp(line_tokens[line_ind + 1], "|") == 0)
+					if (line_tokens[line_ind + 1] != 0 && strcmp(line_tokens[line_ind + 1], "|") == 0)
 					{
-						char **pipe_chain = calloc(32, sizeof(char *));
-						int ind = 0;
-						int off = 1;
-						while (line_tokens[line_ind + off] != NULL && strcmp(line_tokens[line_ind + off], "|") == 0)
-						{
-							pipe_chain[ind] = line_tokens[line_ind + off - 1];
-							ind++;
-							pipe_chain[ind] = line_tokens[line_ind + off];
-							ind++;
-							off = off + 2;
-						}
-						pipe_chain[ind] = line_tokens[line_ind + off - 1];
-
-						printf("Init good \n");
-
-						piping_chain(pipe_chain);
-						line_ind = line_ind + 2;
+						int offset;
+						char **pipe_chain = get_pipe_chain(line_tokens, line_ind, &offset);
+						exit_code = piping_chain(pipe_chain);
+						exit_code = update_exit_bang(&bang_flag, exit_code);
+						line_ind = line_ind + offset;
 					}
 					else
 					{
+						// Normal execution
 						char **p_args = calloc(16, sizeof(char *));
 						tokenizer(line_tokens[line_ind], p_args, " ");
 						exit_code = standard_execute(p_args);
