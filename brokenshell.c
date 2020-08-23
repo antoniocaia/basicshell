@@ -572,12 +572,21 @@ void execute_line(char **line_tokens)
 				if (allowed_to_exec)
 				{
 					// check for pipe/redirect
-					if (strcmp(line_tokens[line_ind + 1], "|") == 0)
+					if (line_tokens[line_ind + 1] != NULL && strcmp(line_tokens[line_ind + 1], "|") == 0)
 					{
-						char **pipe_chain = calloc(4, sizeof(char *));
-						pipe_chain[0] = line_tokens[line_ind];
-						pipe_chain[1] = line_tokens[line_ind + 1];
-						pipe_chain[2] = line_tokens[line_ind + 2];
+						char **pipe_chain = calloc(32, sizeof(char *));
+						int ind = 0;
+						int off = 1;
+						while (line_tokens[line_ind + off] != NULL && strcmp(line_tokens[line_ind + off], "|") == 0)
+						{
+							pipe_chain[ind] = line_tokens[line_ind + off - 1];
+							ind++;
+							pipe_chain[ind] = line_tokens[line_ind + off];
+							ind++;
+							off = off + 2;
+						}
+						pipe_chain[ind] = line_tokens[line_ind + off - 1];
+
 						printf("Init good \n");
 
 						piping_chain(pipe_chain);
