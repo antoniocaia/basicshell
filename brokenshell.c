@@ -13,9 +13,6 @@
 #include <sys/stat.h>
 #include <ctype.h>
 
-#define WRITE_END 1
-#define READ_END 0
-
 bool failed_exec = false;
 
 int tokenizer(char *buffer, char **args, char *separator);
@@ -175,6 +172,27 @@ void b_exec(char **args)
 #define WRITE_END 1
 #define READ_END 0
 
+char *red_io_str[] = {
+	"<",
+	"<>",
+	">",
+	">>"};
+
+bool check_red_io_str(char *str)
+{
+	//printf("%s: \n", str);
+	for (int i = 0; i < sizeof(red_io_str) / sizeof(char *); i++)
+	{
+		//printf(" - %s\n", red_io_str[i]);
+		if (strcmp(str, red_io_str[i]) == 0)
+		{
+			//printf("TRUE\n");
+			return true;
+		}
+	}
+	return false;
+}
+
 int piping_chain_execute(char **commands_list)
 {
 	int i = 0;
@@ -199,11 +217,10 @@ int piping_chain_execute(char **commands_list)
 			// Replace stdin fd with my last output fd
 			dup2(read_from_here, STDIN_FILENO);
 
-			// Is this teh last pipe chain command? If yes, replace stdout, if no, just use stdout
+			// Is this the last pipe chain command? If no, replace stdout, if yes, use stdout for the final output
 			if (commands_list[i + 2] != 0)
 				dup2(fd[WRITE_END], STDOUT_FILENO);
 
-			//TODO: understand why I have to close ends
 			close(fd[READ_END]);
 			execvp(cmd[0], cmd);
 			fprintf(stderr, "Failed to execvp '%s'\n", cmd[0]);
@@ -221,90 +238,58 @@ int piping_chain_execute(char **commands_list)
 	return status;
 }
 
-int redirect_output_execute(char **commands_list, int def_fd)
+int redirect_io_execute(char **commands_list, int new_fd)
 {
-	//printf("[%s]  [%s]  [%s]\n", commands_list[0], commands_list[1], commands_list[2]);
-	int default_fd = def_fd;
 	int fd;
-
 	pid_t pid;
 	int status;
 
+	//printf("[%s]  [%s]  [%s]\n", commands_list[0], commands_list[1], commands_list[2]);
 	pid = fork();
+
 	if (pid == 0)
 	{
 		if (strcmp(commands_list[1], ">>") == 0)
 		{
 			fd = open(commands_list[2], O_CREAT | O_APPEND | O_WRONLY, 0666);
+			if (new_fd == -1)
+				new_fd = 1;
 			if (fd < 0)
 				exit(EXIT_FAILURE);
 		}
 		else if (strcmp(commands_list[1], ">") == 0)
 		{
 			fd = open(commands_list[2], O_CREAT | O_TRUNC | O_WRONLY, 0666);
+
+			if (new_fd == -1)
+				new_fd = 1;
 			if (fd < 0)
 				exit(EXIT_FAILURE);
 		}
-
-		dup2(fd, default_fd);
-		char **cmd = calloc(16, sizeof(char *));
-		tokenizer(commands_list[0], cmd, " ");
-		close(fd);
-		execvp(cmd[0], cmd);
-		exit(EXIT_FAILURE);
-	}
-	else
-	{
-		waitpid(pid, &status, 0);
-		if (status != 0)
-			failed_exec = true;
-		else
-			failed_exec = false;
-
-		return status;
-	}
-}
-
-int redirect_input_execute(char **commands_list, int def_fd)
-{
-	int default_fd = def_fd;
-	int fd;
-
-	//printf("[%s]  [%s]  [%s]\n", commands_list[0], commands_list[1], commands_list[2]);
-
-	pid_t pid;
-	int status;
-	pid = fork();
-	if (pid == 0)
-	{
-		if (strcmp(commands_list[1], "<>") == 0)
+		else if (strcmp(commands_list[1], "<>") == 0)
 		{
 			fd = open(commands_list[2], O_CREAT | O_RDWR, 0666);
+
+			if (new_fd == -1)
+				new_fd = 0;
 			if (fd < 0)
-			{
-				//perror("Error <>");
 				exit(EXIT_FAILURE);
-			}
 		}
 		else if (strcmp(commands_list[1], "<") == 0)
 		{
 			fd = open(commands_list[2], O_RDONLY, 0666);
-			if (fd < 0)
-			{
-				//perror("Error <");
-				exit(EXIT_FAILURE);
-			}
-		}
 
-		dup2(fd, default_fd);
-		//perror("dup2 <");
+			if (new_fd == -1)
+				new_fd = 0;
+			if (fd < 0)
+				exit(EXIT_FAILURE);
+		}
 		char **cmd = calloc(16, sizeof(char *));
 		tokenizer(commands_list[0], cmd, " ");
+
+		dup2(fd, new_fd);
 		close(fd);
-		//printf("cmd %s \n", cmd[0]);
-		int i = execvp(cmd[0], cmd);
-		//printf("F %d\n", i);
-		//perror("OOF");
+		execvp(cmd[0], cmd);
 		exit(EXIT_FAILURE);
 	}
 	else
@@ -350,7 +335,6 @@ char *conc_str[] = {
 	"&&"};
 
 // DIsGuStaNg
-// TODO refactor
 int update_exit_bang(int *bang_flag, int exit_code)
 {
 	if (*bang_flag == 1)
@@ -427,7 +411,6 @@ bool i_want_to_die(char *buffer, int ind)
 {
 	while (true)
 	{
-		//printf(" - %c\n", buffer[ind]);
 		if (buffer[ind] == '<' || buffer[ind] == '>')
 			return true;
 
@@ -655,8 +638,7 @@ char **parse_line(char *buffer)
 				bf_end++;
 
 			insert_token(buffer, bf_str, bf_end - 1, &line_tokens[tk_ind]);
-			printf("%s\n", line_tokens[tk_ind]);
-			system("echo fuck >> log");
+			system("echo 'parsing digit' >> log");
 
 			bf_str = bf_end;
 			tk_ind++;
@@ -696,13 +678,6 @@ char **parse_line(char *buffer)
 		}
 	}
 
-	// int i = 0;
-	// while (line_tokens[i] != 0)
-	// {
-	// 	printf("[%s] \n", line_tokens[i]);
-	// 	i++;
-	// }
-
 	return line_tokens;
 }
 
@@ -714,7 +689,7 @@ void execute_line(char **line_tokens)
 	while (line_tokens[tk_n] != 0)
 		tk_n++;
 
-	// First, check for special character at the end of the line
+	// Check for special character at the end of the line to get the rest of the input, es: &&
 	if (check_str(line_tokens[tk_n - 1]))
 	{
 		printf("> ");
@@ -734,11 +709,12 @@ void execute_line(char **line_tokens)
 	}
 	else
 	{
+		// After obtaining all the input, the line can be executed
 		int exit_code = 0;
 		bool allowed_to_exec = true;
 
 		int line_ind = 0;
-		// Operators
+		// Check for operators, es : ;, ||, &&
 		while (line_tokens[line_ind] != 0)
 		{
 			if (strcmp(line_tokens[line_ind], "!") == 0)
@@ -765,6 +741,7 @@ void execute_line(char **line_tokens)
 			}
 			else if (strcmp(line_tokens[line_ind], "(") == 0)
 			{
+				// ( ) run command between brackets in a subshell
 				int i = line_ind + 1;
 				int j = 0;
 				char **sub_line_tokens = calloc(64, sizeof(char *));
@@ -775,68 +752,41 @@ void execute_line(char **line_tokens)
 					j++;
 				}
 				exit_code = subshell_execute(sub_line_tokens);
-				line_ind = i;
-				// TODO refactor
 				exit_code = update_exit_bang(&bang_flag, exit_code);
+				line_ind = i;
 			}
 			else
 			{
-				// Command execution
 				// ASSOLUTAMENTE DEPLOREVOLE
+				// Command concatenation, piping and io redirect
 				if (allowed_to_exec)
 				{
-					if (line_tokens[line_ind + 1] != 0 && isdigit(line_tokens[line_ind + 1][0]))
+					if (line_tokens[line_ind + 1] != 0 && isdigit(line_tokens[line_ind + 1][0]) && check_red_io_str(line_tokens[line_ind + 2]) == 1)
 					{
+						// Redirection operator when a specific fd is passed, es: 2>,
 						int new_fd = atoi(line_tokens[line_ind + 1]);
-						if (line_tokens[line_ind + 1] != 0 && (strcmp(line_tokens[line_ind + 2], "<") == 0 || strcmp(line_tokens[line_ind + 2], "<>") == 0))
-						{
-							char **redirect_chain = calloc(3, sizeof(char *));
-							redirect_chain[0] = line_tokens[line_ind];
-							redirect_chain[1] = line_tokens[line_ind + 2];
-							redirect_chain[2] = line_tokens[line_ind + 3];
-							//printf("[%s]  [%s]  [%s]\n", line_tokens[line_ind], line_tokens[line_ind + 1], line_tokens[line_ind + 2]);
-							exit_code = redirect_input_execute(redirect_chain, new_fd);
-							exit_code = update_exit_bang(&bang_flag, exit_code);
-							line_ind = line_ind + 3;
-						}
-						else if (line_tokens[line_ind + 1] != 0 && (strcmp(line_tokens[line_ind + 2], ">") == 0 || strcmp(line_tokens[line_ind + 2], ">>") == 0))
-						{
-							char **redirect_chain = calloc(3, sizeof(char *));
-							redirect_chain[0] = line_tokens[line_ind];
-							redirect_chain[1] = line_tokens[line_ind + 2];
-							redirect_chain[2] = line_tokens[line_ind + 3];
-							//printf("[%s]  [%s]  [%s]\n", line_tokens[line_ind], line_tokens[line_ind + 1], line_tokens[line_ind + 2]);
-							exit_code = redirect_output_execute(redirect_chain, new_fd);
-							exit_code = update_exit_bang(&bang_flag, exit_code);
-							line_ind = line_ind + 3;
-						}
-					}
-					else if (line_tokens[line_ind + 1] != 0 && (strcmp(line_tokens[line_ind + 1], "<") == 0 || strcmp(line_tokens[line_ind + 1], "<>") == 0))
-					{
 						char **redirect_chain = calloc(3, sizeof(char *));
 						redirect_chain[0] = line_tokens[line_ind];
-						redirect_chain[1] = line_tokens[line_ind + 1];
-						redirect_chain[2] = line_tokens[line_ind + 2];
-						//printf("[%s]  [%s]  [%s]\n", line_tokens[line_ind], line_tokens[line_ind + 1], line_tokens[line_ind + 2]);
-						exit_code = redirect_input_execute(redirect_chain, 0);
+						redirect_chain[1] = line_tokens[line_ind + 2];
+						redirect_chain[2] = line_tokens[line_ind + 3];
+						exit_code = redirect_io_execute(redirect_chain, new_fd);
 						exit_code = update_exit_bang(&bang_flag, exit_code);
-						line_ind = line_ind + 2;
+						line_ind = line_ind + 3;
 					}
-					else if (line_tokens[line_ind + 1] != 0 && (strcmp(line_tokens[line_ind + 1], ">") == 0 || strcmp(line_tokens[line_ind + 1], ">>") == 0))
+					else if (line_tokens[line_ind + 1] != 0 && check_red_io_str(line_tokens[line_ind + 1]))
 					{
+						// Redirection operator es: >, >>
 						char **redirect_chain = calloc(3, sizeof(char *));
 						redirect_chain[0] = line_tokens[line_ind];
 						redirect_chain[1] = line_tokens[line_ind + 1];
 						redirect_chain[2] = line_tokens[line_ind + 2];
-						//printf("[%s]  [%s]  [%s]\n", line_tokens[line_ind], line_tokens[line_ind + 1], line_tokens[line_ind + 2]);
-						exit_code = redirect_output_execute(redirect_chain, 1);
+						exit_code = redirect_io_execute(redirect_chain, -1);
 						exit_code = update_exit_bang(&bang_flag, exit_code);
 						line_ind = line_ind + 2;
 					}
 					else if (line_tokens[line_ind + 1] != 0 && strcmp(line_tokens[line_ind + 1], "|") == 0)
 					{
-						//MHEEE
-						// check for pipe/redirect
+						// Pipe |
 						int offset;
 						char **pipe_chain = get_pipe_chain(line_tokens, line_ind, &offset);
 						exit_code = piping_chain_execute(pipe_chain);
@@ -849,7 +799,6 @@ void execute_line(char **line_tokens)
 						char **p_args = calloc(16, sizeof(char *));
 						tokenizer(line_tokens[line_ind], p_args, " ");
 						exit_code = standard_execute(p_args);
-						// TODO refactor
 						exit_code = update_exit_bang(&bang_flag, exit_code);
 					}
 				}
