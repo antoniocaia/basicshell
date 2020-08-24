@@ -11,6 +11,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <ctype.h>
 
 #define WRITE_END 1
 #define READ_END 0
@@ -166,15 +167,15 @@ void b_exec(char **args)
 }
 
 /*
-----------------------------------------------
-|                   Piping                   |
-----------------------------------------------
+--------------------------------------------------------------
+|                   Piping and redirection                   |
+--------------------------------------------------------------
 */
 
 #define WRITE_END 1
 #define READ_END 0
 
-int piping_chain(char **commands_list)
+int piping_chain_execute(char **commands_list)
 {
 	int i = 0;
 	int read_from_here = STDIN_FILENO;
@@ -220,6 +221,104 @@ int piping_chain(char **commands_list)
 	return status;
 }
 
+int redirect_output_execute(char **commands_list, int def_fd)
+{
+	//printf("[%s]  [%s]  [%s]\n", commands_list[0], commands_list[1], commands_list[2]);
+	int default_fd = def_fd;
+	int fd;
+
+	pid_t pid;
+	int status;
+
+	pid = fork();
+	if (pid == 0)
+	{
+		if (strcmp(commands_list[1], ">>") == 0)
+		{
+			fd = open(commands_list[2], O_CREAT | O_APPEND | O_WRONLY, 0666);
+			if (fd < 0)
+				exit(EXIT_FAILURE);
+		}
+		else if (strcmp(commands_list[1], ">") == 0)
+		{
+			fd = open(commands_list[2], O_CREAT | O_TRUNC | O_WRONLY, 0666);
+			if (fd < 0)
+				exit(EXIT_FAILURE);
+		}
+
+		dup2(fd, default_fd);
+		char **cmd = calloc(16, sizeof(char *));
+		tokenizer(commands_list[0], cmd, " ");
+		close(fd);
+		execvp(cmd[0], cmd);
+		exit(EXIT_FAILURE);
+	}
+	else
+	{
+		waitpid(pid, &status, 0);
+		if (status != 0)
+			failed_exec = true;
+		else
+			failed_exec = false;
+
+		return status;
+	}
+}
+
+int redirect_input_execute(char **commands_list, int def_fd)
+{
+	int default_fd = def_fd;
+	int fd;
+
+	//printf("[%s]  [%s]  [%s]\n", commands_list[0], commands_list[1], commands_list[2]);
+
+	pid_t pid;
+	int status;
+	pid = fork();
+	if (pid == 0)
+	{
+		if (strcmp(commands_list[1], "<>") == 0)
+		{
+			fd = open(commands_list[2], O_CREAT | O_RDWR, 0666);
+			if (fd < 0)
+			{
+				//perror("Error <>");
+				exit(EXIT_FAILURE);
+			}
+		}
+		else if (strcmp(commands_list[1], "<") == 0)
+		{
+			fd = open(commands_list[2], O_RDONLY, 0666);
+			if (fd < 0)
+			{
+				//perror("Error <");
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		dup2(fd, default_fd);
+		//perror("dup2 <");
+		char **cmd = calloc(16, sizeof(char *));
+		tokenizer(commands_list[0], cmd, " ");
+		close(fd);
+		//printf("cmd %s \n", cmd[0]);
+		int i = execvp(cmd[0], cmd);
+		//printf("F %d\n", i);
+		//perror("OOF");
+		exit(EXIT_FAILURE);
+	}
+	else
+	{
+		waitpid(pid, &status, 0);
+		if (status != 0)
+			failed_exec = true;
+		else
+			failed_exec = false;
+
+		return status;
+	}
+}
+
 /*
 ---------------------------------------------------------------
 |                   Parse and exec generics                   |
@@ -233,6 +332,8 @@ char spec_chs[] = {
 	';',
 	'&',
 	'|',
+	'>',
+	'<',
 	'\\',
 	'\0'};
 
@@ -319,6 +420,21 @@ char **get_pipe_chain(char **line_tokens, int line_ind, int *offset)
 	pipe_chain[ind] = line_tokens[line_ind + off - 1];
 	*offset = ind;
 	return pipe_chain;
+}
+
+// The pinnacle of my career
+bool i_want_to_die(char *buffer, int ind)
+{
+	while (true)
+	{
+		//printf(" - %c\n", buffer[ind]);
+		if (buffer[ind] == '<' || buffer[ind] == '>')
+			return true;
+
+		if (buffer[ind] == ' ' || check_ch(buffer[ind]) == 1)
+			return false;
+		ind++;
+	}
 }
 
 /*
@@ -453,7 +569,7 @@ char **parse_line(char *buffer)
 	}
 
 	// Parsing.
-	// It's ugly, but let me change and add operators easily. Will refactor at the end.
+	// It's ugly, but it allow me to change and add operators easily. Will refactor at the end.
 	while (buffer[bf_end] != '\0')
 	{
 		if (buffer[bf_str] == ' ')
@@ -488,6 +604,36 @@ char **parse_line(char *buffer)
 			bf_str = bf_end;
 			tk_ind++;
 		}
+		else if (buffer[bf_str] == '>')
+		{
+			if (buffer[bf_str + 1] == '>')
+				bf_end = bf_str + 1;
+
+			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
+			bf_end++;
+			bf_str = bf_end;
+			tk_ind++;
+		}
+		else if (buffer[bf_str] == '<')
+		{
+			if (buffer[bf_str + 1] == '>')
+				bf_end = bf_str + 1;
+
+			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
+			bf_end++;
+			bf_str = bf_end;
+			tk_ind++;
+		}
+		else if (buffer[bf_str] == '<')
+		{
+			if (buffer[bf_str + 1] == '>')
+				bf_end = bf_str + 1;
+
+			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
+			bf_end++;
+			bf_str = bf_end;
+			tk_ind++;
+		}
 		else if (buffer[bf_str] == '(' || buffer[bf_str] == ')')
 		{
 			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
@@ -502,18 +648,61 @@ char **parse_line(char *buffer)
 			bf_str = bf_end;
 			tk_ind++;
 		}
+		else if (isdigit(buffer[bf_str]))
+		{
+			bf_end++;
+			while (isdigit(buffer[bf_end]))
+				bf_end++;
+
+			insert_token(buffer, bf_str, bf_end - 1, &line_tokens[tk_ind]);
+			printf("%s\n", line_tokens[tk_ind]);
+			system("echo fuck >> log");
+
+			bf_str = bf_end;
+			tk_ind++;
+		}
 		else
 		{
 			// Standard command
 			bf_end++;
 			while (!check_ch(buffer[bf_end]))
+			{
+				//printf("cicle: %c\n", buffer[bf_end]);
+				if (isdigit(buffer[bf_end]))
+				{
+					int tmp = bf_end;
+					bool b = i_want_to_die(buffer, tmp);
+					//printf("res: %d\n", b);
+					if (b == 1)
+					{
+						bf_end = bf_end - 1;
+						//printf("lsgoooooo\n");
+						break;
+					}
+				}
 				bf_end++;
+			}
 
-			insert_token(buffer, bf_str, bf_end - 1, &line_tokens[tk_ind]);
+			//bf_end--;
+			//printf("last: %c\n", buffer[bf_end]);
+			//Remove last char if it's a black space because it's messed up path
+			if (buffer[bf_end - 1] == ' ')
+				insert_token(buffer, bf_str, bf_end - 2, &line_tokens[tk_ind]);
+			else
+				insert_token(buffer, bf_str, bf_end - 1, &line_tokens[tk_ind]);
+
 			bf_str = bf_end;
 			tk_ind++;
 		}
 	}
+
+	// int i = 0;
+	// while (line_tokens[i] != 0)
+	// {
+	// 	printf("[%s] \n", line_tokens[i]);
+	// 	i++;
+	// }
+
 	return line_tokens;
 }
 
@@ -549,6 +738,7 @@ void execute_line(char **line_tokens)
 		bool allowed_to_exec = true;
 
 		int line_ind = 0;
+		// Operators
 		while (line_tokens[line_ind] != 0)
 		{
 			if (strcmp(line_tokens[line_ind], "!") == 0)
@@ -591,14 +781,65 @@ void execute_line(char **line_tokens)
 			}
 			else
 			{
+				// Command execution
+				// ASSOLUTAMENTE DEPLOREVOLE
 				if (allowed_to_exec)
 				{
-					// check for pipe/redirect
-					if (line_tokens[line_ind + 1] != 0 && strcmp(line_tokens[line_ind + 1], "|") == 0)
+					if (line_tokens[line_ind + 1] != 0 && isdigit(line_tokens[line_ind + 1][0]))
 					{
+						int new_fd = atoi(line_tokens[line_ind + 1]);
+						if (line_tokens[line_ind + 1] != 0 && (strcmp(line_tokens[line_ind + 2], "<") == 0 || strcmp(line_tokens[line_ind + 2], "<>") == 0))
+						{
+							char **redirect_chain = calloc(3, sizeof(char *));
+							redirect_chain[0] = line_tokens[line_ind];
+							redirect_chain[1] = line_tokens[line_ind + 2];
+							redirect_chain[2] = line_tokens[line_ind + 3];
+							//printf("[%s]  [%s]  [%s]\n", line_tokens[line_ind], line_tokens[line_ind + 1], line_tokens[line_ind + 2]);
+							exit_code = redirect_input_execute(redirect_chain, new_fd);
+							exit_code = update_exit_bang(&bang_flag, exit_code);
+							line_ind = line_ind + 3;
+						}
+						else if (line_tokens[line_ind + 1] != 0 && (strcmp(line_tokens[line_ind + 2], ">") == 0 || strcmp(line_tokens[line_ind + 2], ">>") == 0))
+						{
+							char **redirect_chain = calloc(3, sizeof(char *));
+							redirect_chain[0] = line_tokens[line_ind];
+							redirect_chain[1] = line_tokens[line_ind + 2];
+							redirect_chain[2] = line_tokens[line_ind + 3];
+							//printf("[%s]  [%s]  [%s]\n", line_tokens[line_ind], line_tokens[line_ind + 1], line_tokens[line_ind + 2]);
+							exit_code = redirect_output_execute(redirect_chain, new_fd);
+							exit_code = update_exit_bang(&bang_flag, exit_code);
+							line_ind = line_ind + 3;
+						}
+					}
+					else if (line_tokens[line_ind + 1] != 0 && (strcmp(line_tokens[line_ind + 1], "<") == 0 || strcmp(line_tokens[line_ind + 1], "<>") == 0))
+					{
+						char **redirect_chain = calloc(3, sizeof(char *));
+						redirect_chain[0] = line_tokens[line_ind];
+						redirect_chain[1] = line_tokens[line_ind + 1];
+						redirect_chain[2] = line_tokens[line_ind + 2];
+						//printf("[%s]  [%s]  [%s]\n", line_tokens[line_ind], line_tokens[line_ind + 1], line_tokens[line_ind + 2]);
+						exit_code = redirect_input_execute(redirect_chain, 0);
+						exit_code = update_exit_bang(&bang_flag, exit_code);
+						line_ind = line_ind + 2;
+					}
+					else if (line_tokens[line_ind + 1] != 0 && (strcmp(line_tokens[line_ind + 1], ">") == 0 || strcmp(line_tokens[line_ind + 1], ">>") == 0))
+					{
+						char **redirect_chain = calloc(3, sizeof(char *));
+						redirect_chain[0] = line_tokens[line_ind];
+						redirect_chain[1] = line_tokens[line_ind + 1];
+						redirect_chain[2] = line_tokens[line_ind + 2];
+						//printf("[%s]  [%s]  [%s]\n", line_tokens[line_ind], line_tokens[line_ind + 1], line_tokens[line_ind + 2]);
+						exit_code = redirect_output_execute(redirect_chain, 1);
+						exit_code = update_exit_bang(&bang_flag, exit_code);
+						line_ind = line_ind + 2;
+					}
+					else if (line_tokens[line_ind + 1] != 0 && strcmp(line_tokens[line_ind + 1], "|") == 0)
+					{
+						//MHEEE
+						// check for pipe/redirect
 						int offset;
 						char **pipe_chain = get_pipe_chain(line_tokens, line_ind, &offset);
-						exit_code = piping_chain(pipe_chain);
+						exit_code = piping_chain_execute(pipe_chain);
 						exit_code = update_exit_bang(&bang_flag, exit_code);
 						line_ind = line_ind + offset;
 					}
