@@ -180,19 +180,15 @@ char *red_io_str[] = {
 
 bool check_red_io_str(char *str)
 {
-	//printf("%s: \n", str);
 	for (int i = 0; i < sizeof(red_io_str) / sizeof(char *); i++)
 	{
-		//printf(" - %s\n", red_io_str[i]);
 		if (strcmp(str, red_io_str[i]) == 0)
-		{
-			//printf("TRUE\n");
 			return true;
-		}
 	}
 	return false;
 }
 
+// Manage multiple pipe
 int piping_chain_execute(char **commands_list)
 {
 	int i = 0;
@@ -209,8 +205,6 @@ int piping_chain_execute(char **commands_list)
 
 		pipe(fd);
 		pid = fork();
-
-		//CHECK FOR REDIRECTOR TYPE???
 
 		if (pid == 0)
 		{
@@ -238,15 +232,14 @@ int piping_chain_execute(char **commands_list)
 	return status;
 }
 
+// Menage redirect operators
 int redirect_io_execute(char **commands_list, int new_fd)
 {
 	int fd;
 	pid_t pid;
 	int status;
 
-	//printf("[%s]  [%s]  [%s]\n", commands_list[0], commands_list[1], commands_list[2]);
 	pid = fork();
-
 	if (pid == 0)
 	{
 		if (strcmp(commands_list[1], ">>") == 0)
@@ -260,7 +253,6 @@ int redirect_io_execute(char **commands_list, int new_fd)
 		else if (strcmp(commands_list[1], ">") == 0)
 		{
 			fd = open(commands_list[2], O_CREAT | O_TRUNC | O_WRONLY, 0666);
-
 			if (new_fd == -1)
 				new_fd = 1;
 			if (fd < 0)
@@ -269,7 +261,6 @@ int redirect_io_execute(char **commands_list, int new_fd)
 		else if (strcmp(commands_list[1], "<>") == 0)
 		{
 			fd = open(commands_list[2], O_CREAT | O_RDWR, 0666);
-
 			if (new_fd == -1)
 				new_fd = 0;
 			if (fd < 0)
@@ -278,7 +269,6 @@ int redirect_io_execute(char **commands_list, int new_fd)
 		else if (strcmp(commands_list[1], "<") == 0)
 		{
 			fd = open(commands_list[2], O_RDONLY, 0666);
-
 			if (new_fd == -1)
 				new_fd = 0;
 			if (fd < 0)
@@ -649,24 +639,19 @@ char **parse_line(char *buffer)
 			bf_end++;
 			while (!check_ch(buffer[bf_end]))
 			{
-				//printf("cicle: %c\n", buffer[bf_end]);
 				if (isdigit(buffer[bf_end]))
 				{
 					int tmp = bf_end;
 					bool b = i_want_to_die(buffer, tmp);
-					//printf("res: %d\n", b);
 					if (b == 1)
 					{
 						bf_end = bf_end - 1;
-						//printf("lsgoooooo\n");
 						break;
 					}
 				}
 				bf_end++;
 			}
 
-			//bf_end--;
-			//printf("last: %c\n", buffer[bf_end]);
 			//Remove last char if it's a black space because it's messed up path
 			if (buffer[bf_end - 1] == ' ')
 				insert_token(buffer, bf_str, bf_end - 2, &line_tokens[tk_ind]);
@@ -757,7 +742,7 @@ void execute_line(char **line_tokens)
 			}
 			else
 			{
-				// ASSOLUTAMENTE DEPLOREVOLE
+				// DEPLOREVOLE
 				// Command concatenation, piping and io redirect
 				if (allowed_to_exec)
 				{
@@ -785,7 +770,8 @@ void execute_line(char **line_tokens)
 						line_ind = line_ind + 2;
 					}
 					else if (line_tokens[line_ind + 1] != 0 && strcmp(line_tokens[line_ind + 1], "|") == 0)
-					{
+					{	
+						printf("pipe\n");
 						// Pipe |
 						int offset;
 						char **pipe_chain = get_pipe_chain(line_tokens, line_ind, &offset);
