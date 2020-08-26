@@ -15,16 +15,17 @@
 
 bool failed_exec = false;
 
+int read_input(char **buffer);
+char **parse_command(char *buffer);
+char **parse_line(char *buffer);
 int tokenizer(char *buffer, char **args, char *separator);
+void insert_token(char *buffer, int bf_str, int bf_end, char **line_tokens);
+
 int standard_execute(char **args);
 int execute_line(char **line_tokens);
 int redirect_io_execute(char **commands_list, int new_fd);
-char **parse_command(char *buffer);
-void insert_token(char *buffer, int bf_str, int bf_end, char **line_tokens);
+
 bool i_want_to_die(char *buffer, int ind);
-bool check_ch(char ch);
-bool check_ch2(char ch);
-int read_input(char **buffer);
 
 /*
 -------------------------------------------------------
@@ -191,7 +192,26 @@ char *conc_str[] = {
 char *red_io_str[] = {
 	"<", "<>", ">", ">>"};
 
-// DIsGuStaNg
+int check_char_in_list(char c, char *list, int size)
+{
+	for (int i = 0; i < size; i++)
+	{
+		if (list[i] == c)
+			return 0;
+	}
+	return 1;
+}
+
+int check_string_in_list(char *s, char **list, int size)
+{
+	for (int i = 0; i < size; i++)
+	{
+		if (strcmp(list[i], s) == 0)
+			return 0;
+	}
+	return 1;
+}
+
 int update_exit_bang(int *bang_flag, int exit_code)
 {
 	if (*bang_flag == 1)
@@ -216,7 +236,6 @@ int point_len(char *arr)
 	return tmp;
 }
 
-// The pinnacle of my career...
 bool i_want_to_die(char *buffer, int ind)
 {
 	while (true)
@@ -224,64 +243,10 @@ bool i_want_to_die(char *buffer, int ind)
 		if (buffer[ind] == '<' || buffer[ind] == '>')
 			return true;
 
-		if (buffer[ind] == ' ' || check_ch(buffer[ind]) == 1)
+		if (buffer[ind] == ' ' || check_char_in_list(buffer[ind], spec_chs, sizeof(spec_chs)) == 0)
 			return false;
 		ind++;
 	}
-}
-
-/*
---------------------------------------------------------------
-|                   Piping and redirection                   |
---------------------------------------------------------------
-*/
-
-bool check_red_io_str(char *str)
-{
-	for (int i = 0; i < sizeof(red_io_str) / sizeof(char *); i++)
-	{
-		if (strcmp(str, red_io_str[i]) == 0)
-			return true;
-	}
-	return false;
-}
-
-/*
----------------------------------------------------------------
-|                   Parse and exec generics                   |
----------------------------------------------------------------
-*/
-
-bool check_ch(char ch)
-{
-	for (int i = 0; i < sizeof(spec_chs); i++)
-	{
-		if (ch == spec_chs[i])
-			return true;
-	}
-	return false;
-}
-
-bool check_ch2(char ch)
-{
-	for (int i = 0; i < sizeof(red_chs); i++)
-	{
-		if (ch == red_chs[i])
-			return true;
-	}
-	return false;
-}
-
-bool check_str(char *str)
-{
-	for (int i = 0; i < sizeof(conc_str) / sizeof(char *); i++)
-	{
-		if (strcmp(str, conc_str[i]) == 0)
-		{
-			return true;
-		}
-	}
-	return false;
 }
 
 
@@ -372,7 +337,7 @@ char **parse_line(char *buffer)
 		{
 			// Standard command
 			bf_end++;
-			while (!check_ch(buffer[bf_end]))
+			while(check_char_in_list(buffer[bf_end], spec_chs, sizeof(spec_chs)) == 1)
 				bf_end++;
 
 			//Remove last char if it's a black space because it's messed up path
@@ -438,7 +403,7 @@ char **parse_command(char *buffer)
 		{
 			// Standard command
 			bf_end++;
-			while (!check_ch2(buffer[bf_end]))
+			while(check_char_in_list(buffer[bf_end], red_chs, sizeof(red_chs)) == 1)
 			{
 				if (isdigit(buffer[bf_end]))
 				{
@@ -703,7 +668,9 @@ int execute_line(char **line_tokens)
 		tk_n++;
 
 	// Check for special character at the end of the line to get the rest of the input, es: &&
-	if (check_str(line_tokens[tk_n - 1]))
+	
+	//if (check_str(line_tokens[tk_n - 1]))
+	if (check_string_in_list(line_tokens[tk_n - 1], conc_str, sizeof(conc_str) / sizeof(char *)) == 0)
 	{
 		printf("> ");
 		char *new_line;
