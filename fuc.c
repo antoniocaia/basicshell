@@ -13,27 +13,20 @@
 #include <sys/stat.h>
 #include <ctype.h>
 
-struct command
-{
-	char *command;
-	char **args;
-	int priority;
-} typedef cmd;
+bool failed_exec = false;
 
 int read_input(char **buffer);
 char **parse_command(char *buffer);
-cmd **parse_line(char *buffer);
+char **parse_line(char *buffer);
 int tokenizer(char *buffer, char **args, char *separator);
 void insert_token(char *buffer, int bf_str, int bf_end, char **line_tokens);
-void insert_token_operators(char *buffer, int bf_str, int bf_end, cmd **cmd_queue, int pr);
 
 int standard_execute(char **args);
 int execute_line(char **line_tokens);
 int redirect_io_execute(char **commands_list, int new_fd);
 
 bool i_want_to_die(char *buffer, int ind);
-
-bool failed_exec = false;
+bool i_want_to_die2(char *buffer, int ind);
 
 /*
 -------------------------------------------------------
@@ -185,8 +178,12 @@ void b_exec(char **args)
 -----------------------------------------------
 */
 
+//mhe
+char s_spec_chs[] = {
+	'!', '(', ')', ';', '|', '\\', '\0'};
+
 char spec_chs[] = {
-	'!', '(', ')', ';', '&', '|', '<', '>', '\\', '\0'};
+	'!', '(', ')', ';', '&', '|', '\\', '\0'};
 
 char red_chs[] = {
 	'<', '>', '\0'};
@@ -257,65 +254,42 @@ bool i_want_to_die(char *buffer, int ind)
 	}
 }
 
+bool i_want_to_die2(char *buffer, int ind)
+{
+	while (true)
+	{
+		if ((buffer[ind] == '<' || buffer[ind] == '>') && buffer[ind + 1] == '&')
+			return true;
+
+		if (buffer[ind] == ' ' || check_char_in_list(buffer[ind], spec_chs, sizeof(spec_chs)) == 0)
+			return false;
+		ind++;
+	}
+}
+
 /*
 -----------------------------------------------
 |                   Parsing                   |
 -----------------------------------------------
 */
 
-void insert_token_operators(char *buffer, int bf_str, int bf_end, cmd **cmd_queue, int pr)
+bool check_command_synt(char *b, int p)
 {
-	*cmd_queue = malloc(sizeof(cmd));
-	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
-	(*cmd_queue)->command = calloc(str_len, sizeof(char));
-	strncpy((*cmd_queue)->command, &buffer[bf_str], str_len);
-	(*cmd_queue)->args = NULL;
-	(*cmd_queue)->priority = pr;
+	int size = sizeof(spec_chs);
+	for (int i = 0; i < size; i++)
+	{
+		if (s_spec_chs[i] == b[p])
+			return true;
+		if ('&' == b[p] && (b[p - 1] != '<' || b[p - 1] != '<'))
+			return true;
+	}
+	return false;
 }
 
-void insert_token_redir(char *buffer, int bf_str, int bf_end, cmd **cmd_queue, int pr)
-{
-	*cmd_queue = malloc(sizeof(cmd));
-	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
-	char *tmp = calloc(str_len, sizeof(char));
-	strncpy(tmp, &buffer[bf_str], str_len);
-
-	(*cmd_queue)->command = calloc(16, sizeof(char));
-	strncpy((*cmd_queue)->command, tmp, 16);
-
-	(*cmd_queue)->args = NULL;
-	(*cmd_queue)->priority = pr;
-}
-
-void insert_token_cmd(char *buffer, int bf_str, int bf_end, cmd **cmd_queue, int pr)
-{
-	*cmd_queue = malloc(sizeof(cmd));
-	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
-	char *tmp = calloc(str_len, sizeof(char));
-	strncpy(tmp, &buffer[bf_str], str_len);
-
-	char **cmd_args = calloc(16, sizeof(char *));
-	tokenizer(tmp, cmd_args, " ");
-
-	(*cmd_queue)->command = calloc(16, sizeof(char));
-	strncpy((*cmd_queue)->command, cmd_args[0], 16);
-	(*cmd_queue)->args = cmd_args;
-	(*cmd_queue)->priority = pr;
-}
-
-/*
-0: io_red
-1: pipe
-2: command
-3: conc
-4: special
-*/
-
-//ls -l | wc ; <&- ls xxx || echo lol >> file3
 // Parsing a line
-cmd **parse_line(char *buffer)
+char **parse_line(char *buffer)
 {
-	cmd **cmd_queue = calloc(32, sizeof(cmd *));
+	char **line_tokens = calloc(64, sizeof(char *));
 	int tk_ind = 0;
 
 	int bf_str = 0;
@@ -343,97 +317,124 @@ cmd **parse_line(char *buffer)
 	// It's ugly, but it allow me to change and add operators easily. Will refactor at the end.
 	while (buffer[bf_end] != '\0')
 	{
-		if (buffer[bf_end] == ' ')
+		// // Spaghetti
+		// if (isdigit(buffer[bf_end]))
+		// {
+		// 	if (bf_end - 1 < 0 || buffer[bf_end - 1] == ' ')
+		// 	{
+		// 		while (isdigit(buffer[bf_end]))
+		// 			bf_end++;
+
+		// 		// 	insert_token(buffer, bf_str, bf_end - 1, &line_tokens[tk_ind]);
+		// 		// 	bf_str = bf_end;
+		// 		// 	tk_ind++;
+		// 	}
+		// }
+		// //Spaghetti
+		// if (buffer[bf_end] == '<' || buffer[bf_end] == '>')
+		// {
+		// 	bf_end++;
+		// 	if (buffer[bf_end] == '&')
+		// 	{
+		// 		// insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
+		// 		// tk_ind++;
+		// 		bf_end++;
+		// 		// bf_str = bf_end;
+		// 		if (buffer[bf_end] == '-')
+		// 		{
+		// 			//END
+		// 			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
+		// 			//tk_ind++;
+		// 			bf_end++;
+		// 		}
+		// 		else if (isdigit(buffer[bf_end]))
+		// 		{
+		// 			while (isdigit(buffer[bf_end]))
+		// 				bf_end++;
+
+		// 			//END
+		// 			insert_token(buffer, bf_str, bf_end - 1, &line_tokens[tk_ind]);
+		// 			bf_end++;
+		// 			bf_str = bf_end;
+		// 			tk_ind++;
+		// 		}
+		// 	}
+		// }
+		if (buffer[bf_str] == ' ')
 		{
 			bf_str++;
 			bf_end++;
 		}
-		else if (buffer[bf_end] == ';')
+		else if (buffer[bf_str] == ';')
 		{
-			insert_token_operators(buffer, bf_str, bf_end, &cmd_queue[tk_ind], 3);
+			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
 			bf_end++;
 			bf_str = bf_end;
 			tk_ind++;
 		}
-		else if (buffer[bf_end] == '&')
+		else if (buffer[bf_str] == '&')
 		{
 			if (buffer[bf_str + 1] == '&')
-			{
 				bf_end = bf_str + 1;
 
-				insert_token_operators(buffer, bf_str, bf_end, &cmd_queue[tk_ind], 3);
-				bf_end++;
-				bf_str = bf_end;
-				tk_ind++;
-			}
-		}
-		else if (buffer[bf_end] == '|')
-		{
-			if (buffer[bf_end + 1] == '|')
-				bf_end = bf_end + 1;
-
-			insert_token_operators(buffer, bf_str, bf_end, &cmd_queue[tk_ind], 3);
+			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
 			bf_end++;
 			bf_str = bf_end;
 			tk_ind++;
 		}
-		else if (buffer[bf_end] == '(' || buffer[bf_end] == ')')
+		else if (buffer[bf_str] == '|')
 		{
-			insert_token_operators(buffer, bf_str, bf_end, &cmd_queue[tk_ind], 4);
+			if (buffer[bf_str + 1] == '|')
+				bf_end = bf_str + 1;
+
+			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
 			bf_end++;
 			bf_str = bf_end;
 			tk_ind++;
 		}
-		else if (buffer[bf_end] == '!')
+		else if (buffer[bf_str] == '(' || buffer[bf_str] == ')')
 		{
-			insert_token_operators(buffer, bf_str, bf_end, &cmd_queue[tk_ind], 4);
+			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
 			bf_end++;
 			bf_str = bf_end;
 			tk_ind++;
 		}
-		else if (buffer[bf_end] == '>' || buffer[bf_end] == '<')
+		else if (buffer[bf_str] == '!')
 		{
-			if (buffer[bf_end + 1] == '>' || buffer[bf_end] == '<' || buffer[bf_end] == '&')
-			{
-				bf_end = bf_end + 1;
-				while (isdigit(buffer[bf_end + 1]) || buffer[bf_end + 1] == '-')
-				{
-					bf_end++;
-				}
-				insert_token_redir(buffer, bf_str, bf_end, &cmd_queue[tk_ind], 0);
-
-				bf_end++;
-				bf_str = bf_end;
-				tk_ind++;
-			}
-		}
-		else if (isdigit(buffer[bf_end]))
-		{
-			while (isdigit(buffer[bf_end + 1]))
-				bf_end++;
-
+			insert_token(buffer, bf_str, bf_end, &line_tokens[tk_ind]);
 			bf_end++;
+			bf_str = bf_end;
+			tk_ind++;
 		}
 		else
 		{
 			// Standard command
-			while (check_char_in_list(buffer[bf_end + 1], spec_chs, sizeof(spec_chs)) == 1)
+			bf_end++;
+			while (!check_command_synt(buffer, bf_end));
+			{
+				// if (i_want_to_die2(buffer, bf_end))
+				// 	break;
+
 				bf_end++;
+			}
 
 			//Remove last char if it's a black space because it's messed up path
 			if (buffer[bf_end - 1] == ' ')
-				insert_token_cmd(buffer, bf_str, bf_end - 1, &cmd_queue[tk_ind], 2);
+				insert_token(buffer, bf_str, bf_end - 2, &line_tokens[tk_ind]);
 			else
-				insert_token_cmd(buffer, bf_str, bf_end, &cmd_queue[tk_ind], 2);
+				insert_token(buffer, bf_str, bf_end - 1, &line_tokens[tk_ind]);
 
-			bf_end++;
 			bf_str = bf_end;
 			tk_ind++;
 		}
 	}
-	return cmd_queue;
+	return line_tokens;
 }
 
+
+
+// Parsing.
+// It's ugly, but it allow me to change and add operators easily. Will refactor at the end.
 char **parse_command(char *buffer)
 {
 	char **command_tokens = calloc(64, sizeof(char *));
@@ -471,8 +472,14 @@ char **parse_command(char *buffer)
 		}
 		else if (isdigit(buffer[bf_str]))
 		{
-			while (isdigit(buffer[bf_end + 1]))
+			bf_end++;
+			while (isdigit(buffer[bf_end]))
 				bf_end++;
+
+			insert_token(buffer, bf_str, bf_end - 1, &command_tokens[tk_ind]);
+
+			bf_str = bf_end;
+			tk_ind++;
 		}
 		else
 		{
@@ -655,7 +662,7 @@ int subshell_execute(char **sub_line_tokens)
 	pid = fork();
 	if (pid == 0)
 	{
-		//execute_line(sub_line_tokens);
+		execute_line(sub_line_tokens);
 		exit(EXIT_SUCCESS);
 	}
 	else
@@ -677,7 +684,70 @@ int redirect_io_execute(char **commands_list, int new_fd)
 	int fd;
 	pid_t pid;
 	int status;
-	int wr_or_rd;
+	pid = fork();
+	if (pid == 0)
+	{
+		if (strcmp(commands_list[1], ">>") == 0)
+		{
+			fd = open(commands_list[2], O_CREAT | O_APPEND | O_WRONLY, 0666);
+			if (new_fd == -1)
+				new_fd = 1;
+			if (fd < 0)
+				exit(EXIT_FAILURE);
+		}
+		else if (strcmp(commands_list[1], ">") == 0)
+		{
+			fd = open(commands_list[2], O_CREAT | O_TRUNC | O_WRONLY, 0666);
+			if (new_fd == -1)
+				new_fd = 1;
+			if (fd < 0)
+				exit(EXIT_FAILURE);
+		}
+		else if (strcmp(commands_list[1], "<>") == 0)
+		{
+			fd = open(commands_list[2], O_CREAT | O_RDWR, 0666);
+			if (new_fd == -1)
+				new_fd = 0;
+			if (fd < 0)
+				exit(EXIT_FAILURE);
+		}
+		else if (strcmp(commands_list[1], "<") == 0)
+		{
+			fd = open(commands_list[2], O_RDONLY, 0666);
+			if (new_fd == -1)
+				new_fd = 0;
+			if (fd < 0)
+				exit(EXIT_FAILURE);
+		}
+
+		char **cmd = calloc(16, sizeof(char *));
+		tokenizer(commands_list[0], cmd, " ");
+
+		dup2(fd, new_fd);
+		close(fd);
+
+		execvp(cmd[0], cmd);
+		exit(EXIT_FAILURE);
+	}
+	else
+	{
+		waitpid(pid, &status, 0);
+		if (status != 0)
+			failed_exec = true;
+		else
+			failed_exec = false;
+
+		return status;
+	}
+}
+
+// Menage redirect operators
+int fds_execute(char **commands_list, int new_fd)
+{
+	//printf("[%s] [%s] [%s]", commands_list[0], commands_list[1], commands_list[2]);
+	int fd;
+	pid_t pid;
+	int status;
 	pid = fork();
 	if (pid == 0)
 	{
@@ -747,25 +817,26 @@ int execute_line(char **line_tokens)
 	//if (check_str(line_tokens[tk_n - 1]))
 	if (check_string_in_list(line_tokens[tk_n - 1], conc_str, sizeof(conc_str) / sizeof(char *)) == 0)
 	{
-		// printf("> ");
-		// char *new_line;
-		// read_input(&new_line);
-		// char **new_line_tokens = parse_line(new_line);
+		printf("> ");
+		char *new_line;
+		read_input(&new_line);
+		char **new_line_tokens = parse_line(new_line);
 
-		// int i = 0;
-		// int j = tk_n;
-		// while (new_line_tokens[i] != 0)
-		// {
-		// 	line_tokens[j] = new_line_tokens[i];
-		// 	i++;
-		// 	j++;
-		// }
-		// return execute_line(line_tokens);
+		int i = 0;
+		int j = tk_n;
+		while (new_line_tokens[i] != 0)
+		{
+			line_tokens[j] = new_line_tokens[i];
+			i++;
+			j++;
+		}
+		return execute_line(line_tokens);
 	}
 
 	// After obtaining all the input, the line can be executed
 	int exit_code = 0;
 	bool allowed_to_exec = true;
+	char *point_to_fd_p;
 
 	int line_ind = 0;
 	while (line_tokens[line_ind] != 0)
@@ -825,6 +896,14 @@ int execute_line(char **line_tokens)
 				else
 				{
 					char **tmp = parse_command(line_tokens[line_ind]);
+					printf("\nx----\n");
+					int i = 0;
+					while (tmp[i] != 0)
+					{
+						printf("[%s] ", tmp[i]);
+						i++;
+					}
+					printf("\nx----\n");
 					if (tmp[1] == 0)
 					{
 						// Normal execution
@@ -834,6 +913,57 @@ int execute_line(char **line_tokens)
 					}
 					else
 					{
+						printf("1\n");
+						if (isdigit(tmp[0][0]))
+						{
+							printf("2.1 %s\n", tmp[1]);
+							int new_fd = atoi(tmp[0]);
+							if (strcmp(tmp[1], "<&") == 0 || strcmp(tmp[1], ">&") == 0)
+							{
+								printf("2.1.1\n");
+								if (strcmp(tmp[2], "-") == 0)
+								{
+									printf("2.1.2\n");
+									close(new_fd);
+								}
+								else
+								{
+									int dest_fd = atoi(tmp[2]);
+									dup2(new_fd, dest_fd);
+								}
+							}
+						}
+						else
+						{
+							printf("2.2\n");
+							if (strcmp(tmp[1], "<&") == 0)
+							{
+								if (strcmp(tmp[2], "-") == 0)
+								{
+									printf("close 0\n");
+									close(0);
+								}
+								else
+								{
+									int dest_fd = atoi(tmp[2]);
+									dup2(0, dest_fd);
+								}
+							}
+							else if (strcmp(tmp[1], ">&") == 0)
+							{
+
+								if (strcmp(tmp[2], "-") == 0)
+								{
+									printf("close 1\n");
+									close(1);
+								}
+								else
+								{
+									int dest_fd = atoi(tmp[2]);
+									dup2(1, dest_fd);
+								}
+							}
+						}
 						// Redirection
 						if (isdigit(tmp[1][0]))
 						{
@@ -913,18 +1043,18 @@ int main(int argc, char **argv)
 		if (read_res == -1)
 			continue;
 
-		cmd **line_tokens = parse_line(buffer);
+		char **line_tokens = parse_line(buffer);
 
 		printf("\n----\n");
 		int i = 0;
 		while (line_tokens[i] != 0)
 		{
-			printf("[%s] ", line_tokens[i]->command);
-			//printf("[%d]", line_tokens[i]->priority);
+			printf("[%s] ", line_tokens[i]);
 			i++;
 		}
 		printf("\n----\n");
-		//execute_line(line_tokens);
+
+		execute_line(line_tokens);
 	}
 
 	exit(EXIT_SUCCESS);
