@@ -263,27 +263,34 @@ bool i_want_to_die(char *buffer, int ind)
 -----------------------------------------------
 */
 
+void insert_token_redir_cmd(char *buffer, int bf_str, int bf_end, cmd **cmd_queue, int pr)
+{
+	*cmd_queue = malloc(sizeof(cmd));
+	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
+	(*cmd_queue)->command = calloc(str_len, sizeof(char));
+	strncpy((*cmd_queue)->command, &buffer[bf_str], str_len);
+
+	char **cmd_args = calloc(16, sizeof(char *));
+	(*cmd_queue)->args = cmd_args;
+	(*cmd_queue)->priority = pr;
+}
+
+void insert_token_redir_arg(char *buffer, int bf_str, int bf_end, cmd **cmd_queue, int ind)
+{
+	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
+	(*cmd_queue)->args[ind] = calloc(str_len, sizeof(char));
+	strncpy((*cmd_queue)->args[ind], &buffer[bf_str], str_len);
+}
+
 void insert_token_operators(char *buffer, int bf_str, int bf_end, cmd **cmd_queue, int pr)
 {
 	*cmd_queue = malloc(sizeof(cmd));
 	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
 	(*cmd_queue)->command = calloc(str_len, sizeof(char));
 	strncpy((*cmd_queue)->command, &buffer[bf_str], str_len);
-	(*cmd_queue)->args = NULL;
-	(*cmd_queue)->priority = pr;
-}
 
-void insert_token_redir(char *buffer, int bf_str, int bf_end, cmd **cmd_queue, int pr)
-{
-	*cmd_queue = malloc(sizeof(cmd));
-	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
-	char *tmp = calloc(str_len, sizeof(char));
-	strncpy(tmp, &buffer[bf_str], str_len);
-
-	(*cmd_queue)->command = calloc(16, sizeof(char));
-	strncpy((*cmd_queue)->command, tmp, 16);
-
-	(*cmd_queue)->args = NULL;
+	char **cmd_args = calloc(16, sizeof(char *));
+	(*cmd_queue)->args = cmd_args;
 	(*cmd_queue)->priority = pr;
 }
 
@@ -303,15 +310,32 @@ void insert_token_cmd(char *buffer, int bf_str, int bf_end, cmd **cmd_queue, int
 	(*cmd_queue)->priority = pr;
 }
 
+bool check_for_number(char *buffer, int bf_end)
+{
+	if (isdigit(buffer[bf_end]))
+	{
+		bf_end++;
+		while (isdigit(buffer[bf_end]))
+		{
+			if (buffer[bf_end + 1] == '<' || buffer[bf_end + 1] == '>')
+				return true;
+
+			bf_end++;
+		}
+	}
+	return false;
+}
+
 /*
 0: io_red
 1: pipe
 2: command
 3: conc
 4: special
+5: args
 */
 
-//ls -l | wc ; <&- ls xxx || echo lol >> file3
+// ls -l | wc ; <&- ls xxx || echo lol >> file3
 // Parsing a line
 cmd **parse_line(char *buffer)
 {
@@ -393,7 +417,14 @@ cmd **parse_line(char *buffer)
 		}
 		else if (buffer[bf_end] == '>' || buffer[bf_end] == '<')
 		{
-			if (buffer[bf_end + 1] == '>' || buffer[bf_end] == '<' || buffer[bf_end] == '&')
+			if (buffer[bf_end + 1] == '>' || buffer[bf_end] == '<')
+			{
+				insert_token_redir_cmd(buffer, bf_str, bf_end, &cmd_queue[tk_ind], 0);
+				bf_end++;
+				bf_str = bf_end;
+				tk_ind++;
+			}
+			else if (buffer[bf_end] == '&')
 			{
 				bf_end = bf_end + 1;
 				while (isdigit(buffer[bf_end + 1]) || buffer[bf_end + 1] == '-')
@@ -409,15 +440,24 @@ cmd **parse_line(char *buffer)
 		}
 		else if (isdigit(buffer[bf_end]))
 		{
-			while (isdigit(buffer[bf_end + 1]))
+			// while (isdigit(buffer[bf_end + 1]))
+			// 	bf_end++;
+
+			// insert_token_redir(buffer, bf_str, bf_end, &cmd_queue[tk_ind], 5);
+
+			while (buffer[bf_end + 1] != ' ' || buffer[bf_end + 1] != '\0')
 				bf_end++;
 
+			insert_token_redir(buffer, bf_str, bf_end, &cmd_queue[tk_ind], 0);
+
 			bf_end++;
+			bf_str = bf_end;
+			tk_ind++;
 		}
 		else
 		{
 			// Standard command
-			while (check_char_in_list(buffer[bf_end + 1], spec_chs, sizeof(spec_chs)) == 1)
+			while (check_char_in_list(buffer[bf_end + 1], spec_chs, sizeof(spec_chs)) == 1 && !check_for_number(buffer, bf_end))
 				bf_end++;
 
 			//Remove last char if it's a black space because it's messed up path
@@ -920,7 +960,9 @@ int main(int argc, char **argv)
 		while (line_tokens[i] != 0)
 		{
 			printf("[%s] ", line_tokens[i]->command);
-			//printf("[%d]", line_tokens[i]->priority);
+			printf("-[%s] ", line_tokens[i]->args[0]);
+			printf("-[%s] ", line_tokens[i]->args[1]);
+			printf("-[%s] ", line_tokens[i]->args[2]);
 			i++;
 		}
 		printf("\n----\n");
