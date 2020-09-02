@@ -19,7 +19,9 @@ int main(int argc, char **argv)
 {
 	while (true)
 	{
-		printf("> $");
+		update_current_dir_path();
+		update_time();
+		terminal();
 		char *buffer;
 		int read_res = read_input(&buffer);
 		if (read_res == 1)

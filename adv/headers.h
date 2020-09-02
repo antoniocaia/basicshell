@@ -43,6 +43,12 @@ void setup_io_cpy(int tks_ind, tok **tokens, int io_ind);
 void prep_command(tok **tokens, int tks_ind);
 int standard_execute(char **args);
 
+void terminal();
+void update_current_dir_path();
+bool update_battery_level();
+void update_time();
+
+
 /*/******variables*****/
 // Builtin
 static char *lookup_funct[] = {

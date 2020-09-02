@@ -133,7 +133,7 @@ void execute(tok **tokens)
 {
 	int io_ind;
 
-	// setup io (MAYBE UPDATE?)
+	// setup io (MAYBE UPDATE?, maybe Pipe?)
 	int tks_ind = 0;
 	while (tokens[tks_ind] != 0)
 	{
