@@ -25,25 +25,18 @@ int main(int argc, char **argv)
 		if (read_res == 1)
 			continue;
 
-		int *tokens_type;
-		char **line_tokens = parse_line(buffer, &tokens_type);
+		tok **line_tok = parse_line(buffer);
 
 		int i = 0;
-		while (line_tokens[i] != 0)
+		while (line_tok[i] != 0)
 		{
-			printf("[%s] ", line_tokens[i]);
+			printf("[%s]", line_tok[i]->value);
+			printf("[%d] ", line_tok[i]->type);
 			i++;
 		}
-		printf("\n");
+		printf("\n---\n");
 
-		i = 0;
-		while (tokens_type[i] != 0)
-		{
-			printf("[%d] ", tokens_type[i]);
-			i++;
-		}
-		printf("\n");
-		//execute(line_tokens, tokens_type);
+		execute(line_tok);
 	}
 
 	exit(EXIT_SUCCESS);

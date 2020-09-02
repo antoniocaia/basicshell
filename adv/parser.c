@@ -20,17 +20,7 @@ char spec_chs[] = {
 	'\\',
 	'\0'};
 
-int point_len(char *arr)
-{
-	int tmp = 0;
-	while (arr[tmp] != '\0')
-		tmp++;
-
-	tmp--;
-	return tmp;
-}
-
-int check_char_in_list(char c, char *list, int size)
+int is_char_in_list(char c, char *list, int size)
 {
 	for (int i = 0; i < size; i++)
 	{
@@ -40,17 +30,20 @@ int check_char_in_list(char c, char *list, int size)
 	return 0;
 }
 
-void insert_token(char *buffer, int bf_str, int bf_end, char **line_tokens)
+void insert_token(char *buffer, int bf_str, int bf_end, tok **line_tokens, int type)
 {
 	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
-	*line_tokens = calloc(str_len, sizeof(char));
-	strncpy(*line_tokens, &buffer[bf_str], str_len);
+	*line_tokens = malloc(sizeof(tok));
+	(*line_tokens)->value = calloc(str_len, sizeof(char));
+	strncpy((*line_tokens)->value, &buffer[bf_str], str_len);
+	(*line_tokens)->type = type;
 }
 
-char **parse_line(char *buffer, int **tokens_type)
+
+tok **parse_line(char *buffer)
 {
-	char **tokens_tok = calloc(128, sizeof(char *));
-	*tokens_type = calloc(128, sizeof(int));
+	//char **tokens_tok = calloc(128, sizeof(char *));
+	tok **tokens_tok = calloc(128, sizeof(tok *));
 	int tk_ind = 0;
 	int bf_str = 0;
 	int bf_end = 0;
@@ -61,33 +54,28 @@ char **parse_line(char *buffer, int **tokens_type)
 	{
 		if (buffer[bf_end] == '-' && buffer[bf_end - 1] == '&')
 		{
-			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind]);
-			//*tokens_type[tk_ind] = 2;
+			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind], 2);
 			tk_ind++;
 		}
 		else if (buffer[bf_end] == '(' || buffer[bf_end] == ')')
 		{
-			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind]);
-			//*tokens_type[tk_ind] = 4;
+			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind], 4);
 			tk_ind++;
 		}
 		else if (buffer[bf_end] == '!')
 		{
-			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind]);
-			//*tokens_type[tk_ind] = 4;
+			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind], 4);
 			tk_ind++;
 		}
 		else if (buffer[bf_end] == ';')
 		{
-			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind]);
-			//*tokens_type[tk_ind] = 3;
+			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind], 3);
 			tk_ind++;
 		}
 		else if (buffer[bf_end] == '&' && buffer[bf_end + 1] == '&')
 		{
 			bf_end++;
-			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind]);
-			//*tokens_type[tk_ind] = 3;
+			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind], 3);
 			tk_ind++;
 		}
 		else if (buffer[bf_end] == '|')
@@ -95,8 +83,7 @@ char **parse_line(char *buffer, int **tokens_type)
 			if (buffer[bf_end + 1] == '|')
 				bf_end++;
 
-			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind]);
-			//*tokens_type[tk_ind] = 3;
+			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind], 3);
 			tk_ind++;
 		}
 		else if (buffer[bf_end] == '<')
@@ -104,8 +91,7 @@ char **parse_line(char *buffer, int **tokens_type)
 			if (buffer[bf_end + 1] == '<' || buffer[bf_end + 1] == '>' || buffer[bf_end + 1] == '&')
 				bf_end++;
 
-			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind]);
-			//*tokens_type[tk_ind] = 5;
+			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind], 5);
 			tk_ind++;
 		}
 		else if (buffer[bf_end] == '>')
@@ -113,8 +99,7 @@ char **parse_line(char *buffer, int **tokens_type)
 			if (buffer[bf_end + 1] == '>' || buffer[bf_end + 1] == '&')
 				bf_end++;
 
-			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind]);
-			//*tokens_type[tk_ind] = 5;
+			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind], 5);
 			tk_ind++;
 		}
 		else if (isdigit(buffer[bf_end]))
@@ -122,20 +107,21 @@ char **parse_line(char *buffer, int **tokens_type)
 			while (isdigit(buffer[bf_end + 1]))
 				bf_end++;
 
-			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind]);
-			//*tokens_type[tk_ind] = 2;
+			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind], 2);
 			tk_ind++;
 		}
-		if (buffer[bf_end] == ' ')
+		else if (buffer[bf_end] == ' ')
 		{
 		}
 		else
 		{
-			while (!check_char_in_list(buffer[bf_end + 1], spec_chs, sizeof(spec_chs)))
+			while (!is_char_in_list(buffer[bf_end + 1], spec_chs, sizeof(spec_chs)))
 				bf_end++;
 
-			insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind]);
-			*tokens_type[tk_ind] = 1;
+			if (tk_ind > 0 && (tokens_tok[tk_ind - 1]->type == 1 || tokens_tok[tk_ind - 1]->type == 5 || tokens_tok[tk_ind - 1]->type == 2))
+				insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind], 2);
+			else
+				insert_token(buffer, bf_str, bf_end, &tokens_tok[tk_ind], 1);
 			tk_ind++;
 		}
 
@@ -143,22 +129,4 @@ char **parse_line(char *buffer, int **tokens_type)
 		bf_str = bf_end;
 	}
 	return tokens_tok;
-}
-
-int tokenizer(char *buffer, char **args, char *separator)
-{
-	int index = 0;
-	args[index] = strtok(buffer, separator);
-	if (args[index] == NULL)
-	{
-		printf("Error parsing with  '%s'", separator);
-		return -1;
-	}
-
-	do
-	{
-		index++;
-		args[index] = strtok(NULL, separator);
-	} while (args[index] != NULL);
-	return 0;
 }
