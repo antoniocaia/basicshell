@@ -83,7 +83,7 @@ void setup_io_cpy(int tks_ind, tok **tokens, int io_ind)
 	}
 }
 
-void prep_command(tok **tokens, int tks_ind)
+int prep_command(tok **tokens, int tks_ind)
 {
 	int cmd_ind = 0;
 	char **cmd = calloc(16, sizeof(char *));
@@ -98,7 +98,7 @@ void prep_command(tok **tokens, int tks_ind)
 		tks_ind++;
 	}
 
-	standard_execute(cmd);
+	return standard_execute(cmd);
 }
 
 int standard_execute(char **args)
@@ -125,15 +125,64 @@ int standard_execute(char **args)
 		else
 			has_exec_failed = false;
 
+		//printf("ex: %d\n", has_exec_failed);
 		return status;
 	}
 }
 
-void execute(tok **tokens)
+bool set_connector(tok *token)
 {
+	//printf("@@@has_failed: %d \n@@@token value: %s\n", has_exec_failed, token->value);
+	if (strcmp(token->value, ";") == 0)
+	{
+		return true;
+	}
+	else if (strcmp(token->value, "&&") == 0)
+	{
+		if (has_exec_failed)
+			return false;
+		else
+			return true;
+	}
+	else if (strcmp(token->value, "||") == 0)
+	{
+		if (has_exec_failed)
+			return true;
+		else
+			return false;
+	}
+}
+
+int shubshell(tok **tokens)
+{
+	pid_t pid;
+	int status;
+	pid = fork();
+	if (pid == 0)
+	{
+		int e = execute(tokens);
+		exit(has_exec_failed);
+	}
+	else
+	{
+		waitpid(pid, &status, 0);
+		if (status != 0)
+			has_exec_failed = true;
+		else
+			has_exec_failed = false;
+
+		//printf("ex sub: %d\n", has_exec_failed);
+		return status;
+	}
+}
+
+int execute(tok **tokens)
+{
+	int i = 0;
+	bool bang = false;
+	bool can_ex = true;
 	int io_ind;
 
-	// setup io (MAYBE UPDATE?, maybe Pipe?)
 	int tks_ind = 0;
 	while (tokens[tks_ind] != 0)
 	{
@@ -150,7 +199,48 @@ void execute(tok **tokens)
 	while (tokens[tks_ind] != 0)
 	{
 		if (tokens[tks_ind]->type == 1)
-			prep_command(tokens, tks_ind);
+		{
+			if (can_ex)
+				prep_command(tokens, tks_ind);
+			//printf("final ex: %d\n", has_exec_failed);
+			if (bang)
+			{
+				bang = false;
+				has_exec_failed = 1 - has_exec_failed;
+				//printf("altered ex: %d\n", has_exec_failed);
+			}
+		}
+		else if (tokens[tks_ind]->type == 3)
+		{
+			can_ex = set_connector(tokens[tks_ind]);
+		}
+		else if (strcmp(tokens[tks_ind]->value, "(") == 0)
+		{
+			tok **sub_tokens = calloc(64, sizeof(tok *));
+			int st_ind = 0;
+			tks_ind++;
+			while ((strcmp(tokens[tks_ind]->value, ")") != 0))
+			{
+				//printf("tikitak %s\n", tokens[tks_ind]->value);
+				sub_tokens[st_ind] = tokens[tks_ind];
+				tks_ind++;
+				st_ind++;
+			}
+			shubshell(sub_tokens);
+			//printf("final ex: %d\n", has_exec_failed);
+			if (bang)
+			{
+				bang = false;
+				has_exec_failed = 1 - has_exec_failed;
+				//printf("altered ex: %d\n", has_exec_failed);
+			}
+			tks_ind;
+		}
+		else if (strcmp(tokens[tks_ind]->value, "!") == 0)
+		{
+			bang = true;
+		}
+
 		tks_ind++;
 	}
 }

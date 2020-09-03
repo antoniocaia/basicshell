@@ -35,13 +35,15 @@ tok **parse_line(char *buffer);
 int is_char_in_list(char c, char *list, int size);
 void insert_token(char *buffer, int bf_str, int bf_end, tok **line_tokens, int type);
 
-void execute(tok **tokens);
+int execute(tok **tokens);
 int check_string_in_list(char *s, char **list, int size);
 bool isnumber(char *s);
 void setup_io_red(int tks_ind, tok **tokens, int io_ind);
 void setup_io_cpy(int tks_ind, tok **tokens, int io_ind);
-void prep_command(tok **tokens, int tks_ind);
+int prep_command(tok **tokens, int tks_ind);
 int standard_execute(char **args);
+int shubshell(tok **tokens);
+void setup_special(tok **tokens, int tks_ind);
 
 void terminal();
 void update_current_dir_path();
@@ -67,5 +69,5 @@ static int (*builtin_funct[])(char **) = {
 // Builtin
 static int builtin_n = sizeof(lookup_funct) / sizeof(lookup_funct[0]);
 
-// Terminal
+// GENERAL
 static bool has_exec_failed = false;

@@ -29,14 +29,14 @@ int main(int argc, char **argv)
 
 		tok **line_tok = parse_line(buffer);
 
-		int i = 0;
-		while (line_tok[i] != 0)
-		{
-			printf("[%s]", line_tok[i]->value);
-			printf("[%d] ", line_tok[i]->type);
-			i++;
-		}
-		printf("\n---\n");
+		// int i = 0;
+		// while (line_tok[i] != 0)
+		// {
+		// 	printf("[%s]", line_tok[i]->value);
+		// 	printf("[%d] ", line_tok[i]->type);
+		// 	i++;
+		// }
+		// printf("\n---\n");
 
 		execute(line_tok);
 	}
