@@ -1,5 +1,5 @@
 main : main.o execute.o parser.o builtin.o prompt.o
-	gcc main.o execute.o parser.o builtin.o prompt.o
+	gcc -o dumbshell main.o execute.o parser.o builtin.o prompt.o
 
 main.o : headers.h main.c
 	gcc -c main.c
