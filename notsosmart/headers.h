@@ -18,7 +18,7 @@ struct token {
 } typedef tok;
 
 // Node struct used by the parser to build a binary tree to define the execution flow
-enum node_type { p_arg, p_separator };
+enum node_type { p_arg, p_separator, p_null };
 
 struct parser_node {
 	enum node_type type;
@@ -63,7 +63,7 @@ tok** lex_line(char* buffer);
 // parser.c
 char** toks_to_strings(tok** tokens);
 pn* parse(tok** tokens);
-void parsing(pn* node, tok** tokens, int t_start, int t_end);
+pn* parsing(tok** tokens, int t_start, int t_end);
 
 // execute.c
 int is_builtin(char* cmd);

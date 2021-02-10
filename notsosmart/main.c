@@ -6,8 +6,6 @@ int read_input(char** buffer) {
 }
 
 int main(int argc, char** argv) {
-	// Init global vars
-	g_token_number = 0;
 
 	while (true) {
 		// Terminal output
@@ -23,6 +21,7 @@ int main(int argc, char** argv) {
 			// no input
 			continue;
 		}
+		g_token_number = 0;
 		// Lex the line in token 
 		tok** token_list = lex_line(buffer);
 		// Parse the token to index
