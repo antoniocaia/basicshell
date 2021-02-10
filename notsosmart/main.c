@@ -6,9 +6,12 @@ int read_input(char** buffer) {
 }
 
 int main(int argc, char** argv) {
+	// Init global vars
+	g_token_number = 0;
+
 	while (true) {
 		// Terminal output
-		printf("$ ");
+		printf("> ");
 		// Read input
 		char* buffer;
 		size_t char_read = read_input(&buffer);
@@ -23,19 +26,17 @@ int main(int argc, char** argv) {
 		// Lex the line in token 
 		tok** token_list = lex_line(buffer);
 		// Parse the token to index
-		char** args = toks_to_strings(token_list);
+		pn* root = parse(token_list);
 		// Execut command
-		execute(args);
 
-		// TEST OUTPUT
-		// int i = 0;
-		// while (token_list[i] != 0) {
-		// 	printf("[%s]", token_list[i]->value);
-		// 	i++;
-		// }
+		// TEST OUTPUT TOKEN
+		int i = 0;
+		while (token_list[i] != 0) {
+			printf("[%s]", token_list[i]->value);
+			i++;
+		}
 		// END TEST OUTPUT
 		printf("\n");
 	}
-
 	exit(EXIT_SUCCESS);
 }

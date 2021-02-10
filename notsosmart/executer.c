@@ -9,18 +9,18 @@ int is_builtin(char* cmd) {
 }
 
 
-int execute(char** args) {
+int execute(char** cmd_args) {
 	// Check if command is a builtin function; if true run it
-	int bi_ind = is_builtin(args[0]);
+	int bi_ind = is_builtin(cmd_args[0]);
 	if (bi_ind != -1)
-		return builtin_funct[bi_ind](args);
+		return builtin_funct[bi_ind](cmd_args);
 
 	// Standard child-parent fork
 	int pid;
 	int status;
 	pid = fork();
 	if (pid == 0) {
-		execvp(args[0], args);
+		execvp(cmd_args[0], cmd_args);
 		exit(EXIT_FAILURE);
 	}
 	else {
