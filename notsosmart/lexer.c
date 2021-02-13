@@ -11,9 +11,14 @@ void insert_token(char* buffer, int bf_str, int bf_end, tok** line_tokens, int t
 }
 
 char* read_another_line(char* buffer) {
-	printf("> ");
+	printf("\\> ");
+
+	int buff_len = strlen(buffer);
+	buffer[buff_len - 1] = '\0';
+
 	char* new_line;
 	read_input(&new_line);
+
 	char* new_buffer;
 	new_buffer = calloc(64, sizeof(char));
 	strcpy(new_buffer, buffer);
