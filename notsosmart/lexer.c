@@ -69,6 +69,14 @@ tok** lex_line(char* buffer) {
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_separator);
 			tk_ind++;
 		}
+		else if (buffer[bf_end] == '(') {			// brackets (subshell)
+			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_leftb);
+			tk_ind++;
+		}
+		else if (buffer[bf_end] == ')') {			// brackets (subshell)
+			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_rigthb);
+			tk_ind++;
+		}
 		else if (isdigit(buffer[bf_end])) {			// Number
 			while (isdigit(buffer[bf_end + 1]))
 				bf_end++;

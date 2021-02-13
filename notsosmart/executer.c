@@ -24,6 +24,26 @@ int execute_cmd(char** cmd_args) {
 	}
 	else {
 		waitpid(pid, &status, 0);
+		// DEBUGG
+		// EXIT CODE
+		//printf("Exit code [%d]\n", status);
+		return status;
+	}
+}
+
+
+int execute_shubshell(pn* root) {
+	pid_t pid;
+	int status;
+	pid = fork();
+	if (pid == 0) {
+		int e = execute(root);
+	}
+	else {
+		waitpid(pid, &status, 0);
+		// DEBUGG
+		// EXIT CODE
+		//printf("Exit code sub [%d]\n", status);
 		return status;
 	}
 }
@@ -33,22 +53,29 @@ int execute(pn* root) {
 		return 0;
 	else if (root->type == p_arg) {
 		return execute_cmd(root->args);
-		//execute(root->left);
+	}
+	else if (root->type == p_subshell) {
+		// Run a subshell 
+		return execute_shubshell(root->left);
 	}
 	else if (root->type == p_separator) {
 		// ';' do nothing
 		execute(root->left);
-		execute(root->rigth);
+		return execute(root->rigth);
 	}
 	else if (root->type == p_and) {
 		// &&: if first cmd true then second cmd run
 		if (execute(root->left) == 0)
-			execute(root->rigth);
+			return execute(root->rigth);
+
+		return 1;
 	}
 	else if (root->type == p_or) {
 		// ||: if first cmd false then second cmd run
 		if (execute(root->left) != 0)
-			execute(root->rigth);
+			return execute(root->rigth);
+
+		return 0;
 	}
 
 	return -1;
