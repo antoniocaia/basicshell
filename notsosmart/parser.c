@@ -62,6 +62,15 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 		tok_current++;
 	}
 
+	// Check for bang '!' operator
+	if (tokens[tok_start]->type == t_bang) {
+		node->type = p_bang;
+		node->args = calloc(1, sizeof(char*));
+		(node->args)[0] = "!";
+		node->left = parsing(tokens, tok_start + 1, tok_end);
+		return node;
+	}
+
 	// No "special token" means that what remains is commands and args
 	// Set the args vector
 	node->type = p_arg;

@@ -36,11 +36,12 @@ int execute_shubshell(pn* root) {
 	pid = fork();
 	if (pid == 0) {
 		int e = execute(root);
+		//printf("Exit code e [%d]\n", e); // DEBUG EXIT CODE
 		exit(e);
 	}
 	else {
 		waitpid(pid, &status, 0);
-		//printf("Exit code [%d]\n", status); // DEBUG EXIT CODE
+		//printf("Exit code sub [%d]\n", status); // DEBUG EXIT CODE
 		return status;
 	}
 }
@@ -73,6 +74,9 @@ int execute(pn* root) {
 			return execute(root->rigth);
 
 		return 0;
+	}
+	else if (root->type == p_bang) {
+		return execute(root->left) != 0 ? 0 : 1;
 	}
 
 	return -1;

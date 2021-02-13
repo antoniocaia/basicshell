@@ -53,6 +53,10 @@ tok** lex_line(char* buffer) {
 		if (isspace(buffer[bf_end])) {
 			// Skip every space inside the string
 		}
+		else if (buffer[bf_end] == '!') {		// Output negation
+			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_bang);
+			tk_ind++;
+		}
 		else if (buffer[bf_end] == '&' && buffer[bf_end + 1] == '&') {	// AND
 			bf_end++;
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_and);

@@ -10,7 +10,7 @@
 
 
 // LEX: token struct and type value, used by the lexer to easily build the tree
-enum token_type { t_str, t_separator, t_number, t_and, t_or, t_leftb, t_rigthb };
+enum token_type { t_str, t_separator, t_number, t_and, t_or, t_leftb, t_rigthb, t_bang };
 
 struct token {
 	char* value;
@@ -18,7 +18,7 @@ struct token {
 } typedef tok;
 
 // PARS: node struct used by the parser to build a binary tree to define the execution flow
-enum node_type { p_arg, p_separator, p_and, p_or, p_subshell, p_null };
+enum node_type { p_arg, p_separator, p_and, p_or, p_subshell, p_bang, p_null };
 
 struct parser_node {
 	enum node_type type;

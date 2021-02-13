@@ -13,7 +13,7 @@ void print_tokens(tok** tl) {
 // DEBUG
 // TEST NODE
 void print_pars(pn* root) {
-	if(root == NULL) return;
+	if (root == NULL) return;
 	printf("Type [%d]\n", root->type);
 	int i = 0;
 	while ((root->args)[i] != 0) {
@@ -50,16 +50,10 @@ int main(int argc, char** argv) {
 		g_token_number = 0;
 		// Lex the line in token 
 		tok** token_list = lex_line(buffer);
-		
-		// DEBUG
-		//print_tokens(token_list);
-		
+		print_tokens(token_list); // DEBUG
 		// Parse the token to index
 		pn* root = parse(token_list);
-		
-		// DEBUGG
-		//print_pars(root);
-		
+		print_pars(root); // DEBUG
 		// Execut command
 		execute(root);
 
