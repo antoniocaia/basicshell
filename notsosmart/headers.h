@@ -9,7 +9,7 @@
 #include <ctype.h>		// isdigit, isalpha, isspace
 
 
-// Token struct and type value, used by the lexer to easily build the tree
+// LEX: token struct and type value, used by the lexer to easily build the tree
 enum token_type { t_str, t_separator, t_number };
 
 struct token {
@@ -17,12 +17,11 @@ struct token {
 	enum token_type type;
 } typedef tok;
 
-// Node struct used by the parser to build a binary tree to define the execution flow
+// PARS: node struct used by the parser to build a binary tree to define the execution flow
 enum node_type { p_arg, p_separator, p_null };
 
 struct parser_node {
 	enum node_type type;
-	char* value;
 	char** args;
 	struct parser_node* left;
 	struct parser_node* rigth;
@@ -67,7 +66,8 @@ pn* parsing(tok** tokens, int t_start, int t_end);
 
 // execute.c
 int is_builtin(char* cmd);
-int execute(char** args);
+int execute_cmd(char** args);
+int execute(pn* root);
 
 // GLOBAL VAR
 // Mostly size of struct

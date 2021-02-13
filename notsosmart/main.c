@@ -1,5 +1,30 @@
 #include "headers.h"
 
+// DEBUG
+// TEST TOKEN
+void print_tokens(tok** tl) {
+	int i = 0;
+	while (tl[i] != 0) {
+		printf("[%s]", tl[i]->value);
+		i++;
+	}
+	printf("\n\n");
+}
+// DEBUG
+// TEST NODE
+void print_pars(pn* root) {
+	if(root == NULL) return;
+	printf("Type [%d]\n", root->type);
+	int i = 0;
+	while ((root->args)[i] != 0) {
+		printf("[%s]", (root->args)[i]);
+		i++;
+	}
+	printf("\n\n");
+	print_pars(root->left);
+	print_pars(root->rigth);
+}
+
 int read_input(char** buffer) {
 	size_t buffer_size = 0;
 	return getline(buffer, &buffer_size, stdin);
@@ -24,17 +49,19 @@ int main(int argc, char** argv) {
 		g_token_number = 0;
 		// Lex the line in token 
 		tok** token_list = lex_line(buffer);
+		
+		// DEBUG
+		print_tokens(token_list);
+		
 		// Parse the token to index
 		pn* root = parse(token_list);
+		
+		// DEBUGG
+		print_pars(root);
+		
 		// Execut command
+		execute(root);
 
-		// TEST OUTPUT TOKEN
-		int i = 0;
-		while (token_list[i] != 0) {
-			printf("[%s]", token_list[i]->value);
-			i++;
-		}
-		// END TEST OUTPUT
 		printf("\n");
 	}
 	exit(EXIT_SUCCESS);

@@ -11,7 +11,6 @@ pn* parsing(tok** tokens, int t_start, int t_end) {
 
 	pn* node = malloc(sizeof(pn));
 	node->type = p_null;
-	node->value = NULL;
 	node->left = NULL;
 	node->rigth = NULL;
 
@@ -20,7 +19,8 @@ pn* parsing(tok** tokens, int t_start, int t_end) {
 	while (t_current <= t_end) {
 		if (tokens[t_current]->type == t_separator) {
 			node->type = p_separator;
-			node->value = ";";
+			node->args = calloc(1, sizeof(char*));
+			(node->args)[0] = ";";
 
 			node->left = parsing(tokens, t_start, t_current - 1);
 			node->rigth = parsing(tokens, t_current + 1, t_end);
@@ -32,7 +32,6 @@ pn* parsing(tok** tokens, int t_start, int t_end) {
 	// No "special token" means that what remains is commands and args
 	// Set the value filed and the args vector
 	node->type = p_arg;
-	node->value = tokens[t_start]->value;
 	node->args = calloc(16, sizeof(char*));
 	(node->args)[0] = tokens[t_start]->value;
 
@@ -41,10 +40,12 @@ pn* parsing(tok** tokens, int t_start, int t_end) {
 	while (t_current <= t_end) {
 		(node->args)[args_ind] = tokens[t_current]->value;
 		t_current++;
+		args_ind++;
 	}
 	return node;
 }
 
+// DEBUGG
 char** toks_to_strings(tok** tokens) {
 	int tks_ind = 0;
 	int args_ind = 0;

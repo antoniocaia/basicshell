@@ -8,8 +8,7 @@ int is_builtin(char* cmd) {
 	return -1;
 }
 
-
-int execute(char** cmd_args) {
+int execute_cmd(char** cmd_args) {
 	// Check if command is a builtin function; if true run it
 	int bi_ind = is_builtin(cmd_args[0]);
 	if (bi_ind != -1)
@@ -27,4 +26,19 @@ int execute(char** cmd_args) {
 		waitpid(pid, &status, 0);
 		return status;
 	}
+}
+
+int execute(pn* root) {
+	if (root == NULL)
+		return 0;
+	else if (root->type == p_arg) {
+		execute_cmd(root->args);
+		//execute(root->left);
+	}
+	else if (root->type == p_separator) {
+		// ';' do nothing
+		execute(root->left);
+		execute(root->rigth);
+	}
+	return -1;
 }

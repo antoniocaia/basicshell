@@ -6,7 +6,7 @@ void insert_token(char* buffer, int bf_str, int bf_end, tok** line_tokens, int t
 	(*line_tokens)->value = calloc(str_len, sizeof(char));
 	strncpy((*line_tokens)->value, &buffer[bf_str], str_len);
 	(*line_tokens)->type = type;
-	
+
 	g_token_number++;
 }
 
@@ -25,7 +25,9 @@ bool is_string(char* buffer, int bf_end) {
 	return isalpha(buffer[bf_end + 1])
 		|| isdigit(buffer[bf_end + 1])
 		|| buffer[bf_end + 1] == '_'
-		|| buffer[bf_end + 1] == '-';
+		|| buffer[bf_end + 1] == '-'
+		|| buffer[bf_end + 1] == '.'
+		|| buffer[bf_end + 1] == '/';
 }
 
 tok** lex_line(char* buffer) {
@@ -61,17 +63,18 @@ tok** lex_line(char* buffer) {
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_number);
 			tk_ind++;
 		}
-		else if (isalpha(buffer[bf_end])) {
+		else if (is_string(buffer, bf_end)) {
 			while (is_string(buffer, bf_end))
 				bf_end++;
 
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_str);
 			tk_ind++;
-		} else {
-			char* invalid_str = malloc(sizeof(char)*64);
+		}
+		else {
+			char* invalid_str = malloc(sizeof(char) * 64);
 			int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
 			strncpy(invalid_str, &buffer[bf_str], str_len);
-			printf("Invalid sign: [%s]\n", invalid_str);
+			printf("LEX: invalid sign: [%s]\n", invalid_str);
 		}
 
 		bf_end++;
