@@ -26,6 +26,24 @@ pn* parsing(tok** tokens, int t_start, int t_end) {
 			node->rigth = parsing(tokens, t_current + 1, t_end);
 			return node;
 		}
+		else if (tokens[t_current]->type == t_and) {
+			node->type = p_and;
+			node->args = calloc(1, sizeof(char*));
+			(node->args)[0] = "&&";
+
+			node->left = parsing(tokens, t_start, t_current - 1);
+			node->rigth = parsing(tokens, t_current + 1, t_end);
+			return node;
+		}
+		else if (tokens[t_current]->type == t_or) {
+			node->type = p_or;
+			node->args = calloc(1, sizeof(char*));
+			(node->args)[0] = "||";
+
+			node->left = parsing(tokens, t_start, t_current - 1);
+			node->rigth = parsing(tokens, t_current + 1, t_end);
+			return node;
+		}
 		t_current++;
 	}
 

@@ -52,13 +52,13 @@ int main(int argc, char** argv) {
 		tok** token_list = lex_line(buffer);
 		
 		// DEBUG
-		//print_tokens(token_list);
+		print_tokens(token_list);
 		
 		// Parse the token to index
 		pn* root = parse(token_list);
 		
 		// DEBUGG
-		//print_pars(root);
+		print_pars(root);
 		
 		// Execut command
 		execute(root);

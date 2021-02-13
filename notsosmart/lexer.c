@@ -53,17 +53,29 @@ tok** lex_line(char* buffer) {
 		if (isspace(buffer[bf_end])) {
 			// Skip every space inside the string
 		}
-		else if (buffer[bf_end] == ';') {
+		else if (buffer[bf_end] == '&' && buffer[bf_end + 1] == '&') {	// AND
+			bf_end++;
+			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_and);
+			tk_ind++;
+
+		}
+		else if (buffer[bf_end] == '|' && buffer[bf_end + 1] == '|') {	// OR
+			bf_end++;
+			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_or);
+			tk_ind++;
+
+		}
+		else if (buffer[bf_end] == ';') {			// Cmd separator
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_separator);
 			tk_ind++;
 		}
-		else if (isdigit(buffer[bf_end])) {
+		else if (isdigit(buffer[bf_end])) {			// Number
 			while (isdigit(buffer[bf_end + 1]))
 				bf_end++;
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_number);
 			tk_ind++;
 		}
-		else if (is_string(buffer, bf_end)) {
+		else if (is_string(buffer, bf_end)) {		// String
 			while (is_string(buffer, bf_end))
 				bf_end++;
 

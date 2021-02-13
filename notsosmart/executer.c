@@ -24,7 +24,7 @@ int execute_cmd(char** cmd_args) {
 	}
 	else {
 		waitpid(pid, &status, 0);
-		return status;	
+		return status;
 	}
 }
 
@@ -40,5 +40,16 @@ int execute(pn* root) {
 		execute(root->left);
 		execute(root->rigth);
 	}
+	else if (root->type == p_and) {
+		// &&: if first cmd true then second cmd run
+		if (execute(root->left) == 0)
+			execute(root->rigth);
+	}
+	else if (root->type == p_or) {
+		// ||: if first cmd false then second cmd run
+		if (execute(root->left) != 0)
+			execute(root->rigth);
+	}
+
 	return -1;
 }
