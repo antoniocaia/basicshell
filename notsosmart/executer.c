@@ -24,9 +24,7 @@ int execute_cmd(char** cmd_args) {
 	}
 	else {
 		waitpid(pid, &status, 0);
-		// DEBUGG
-		// EXIT CODE
-		//printf("Exit code [%d]\n", status);
+		//printf("Exit code [%d]\n", status); // DEBUG EXIT CODE
 		return status;
 	}
 }
@@ -38,12 +36,11 @@ int execute_shubshell(pn* root) {
 	pid = fork();
 	if (pid == 0) {
 		int e = execute(root);
+		exit(e);
 	}
 	else {
 		waitpid(pid, &status, 0);
-		// DEBUGG
-		// EXIT CODE
-		//printf("Exit code sub [%d]\n", status);
+		//printf("Exit code [%d]\n", status); // DEBUG EXIT CODE
 		return status;
 	}
 }
