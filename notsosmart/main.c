@@ -40,7 +40,8 @@ int main(int argc, char** argv) {
 		size_t char_read = read_input(&buffer);
 		if (char_read == -1) {
 			// Deal with error 
-			printf("getline failed: %s\n", strerror(errno));
+			printf("getline interrupted: %s\n", strerror(errno));
+			exit(EXIT_SUCCESS);
 		}
 		else if (char_read == 1) {
 			// no input
@@ -51,13 +52,13 @@ int main(int argc, char** argv) {
 		tok** token_list = lex_line(buffer);
 		
 		// DEBUG
-		print_tokens(token_list);
+		//print_tokens(token_list);
 		
 		// Parse the token to index
 		pn* root = parse(token_list);
 		
 		// DEBUGG
-		print_pars(root);
+		//print_pars(root);
 		
 		// Execut command
 		execute(root);

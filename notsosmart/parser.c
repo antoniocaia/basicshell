@@ -2,12 +2,12 @@
 
 pn* parse(tok** tokens) {
 	pn* root = parsing(tokens, 0, g_token_number - 1);
-	return root; // Can't return local var address!
+	return root;
 }
 
 pn* parsing(tok** tokens, int t_start, int t_end) {
 	// No more tokens
-	if(t_start > t_end) return NULL;
+	if (t_start > t_end) return NULL;
 
 	pn* node = malloc(sizeof(pn));
 	node->type = p_null;
@@ -30,7 +30,7 @@ pn* parsing(tok** tokens, int t_start, int t_end) {
 	}
 
 	// No "special token" means that what remains is commands and args
-	// Set the value filed and the args vector
+	// Set the args vector
 	node->type = p_arg;
 	node->args = calloc(16, sizeof(char*));
 	(node->args)[0] = tokens[t_start]->value;

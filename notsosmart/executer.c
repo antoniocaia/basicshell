@@ -24,7 +24,7 @@ int execute_cmd(char** cmd_args) {
 	}
 	else {
 		waitpid(pid, &status, 0);
-		return status;
+		return status;	
 	}
 }
 
@@ -32,7 +32,7 @@ int execute(pn* root) {
 	if (root == NULL)
 		return 0;
 	else if (root->type == p_arg) {
-		execute_cmd(root->args);
+		return execute_cmd(root->args);
 		//execute(root->left);
 	}
 	else if (root->type == p_separator) {
