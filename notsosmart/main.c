@@ -61,3 +61,8 @@ int main(int argc, char** argv) {
 	}
 	exit(EXIT_SUCCESS);
 }
+
+// USE 
+// ls | cat
+// ls | cat > test
+// TO TEST PIPE

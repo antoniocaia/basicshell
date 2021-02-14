@@ -24,13 +24,22 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 		return node;
 	}
 
-	// Check for every token that separate multiple commands, and end the function call
+	// Check for every binary token that separate multiple commands
 	int tok_current = tok_start;
 	while (tok_current <= tok_end) {
 		// When finding round brackets, we skip every token in the middle
 		if (tokens[tok_current]->type == t_leftb) {
 			while (tokens[tok_current]->type != t_rigthb)
 				tok_current++;
+		}
+		else if (tokens[tok_current]->type == t_pipe) {
+			node->type = p_pipe;
+			node->args = calloc(1, sizeof(char*));
+			(node->args)[0] = "|";
+
+			node->left = parsing(tokens, tok_start, tok_current - 1);
+			node->rigth = parsing(tokens, tok_current + 1, tok_end);
+			return node;
 		}
 		else if (tokens[tok_current]->type == t_separator) {
 			node->type = p_separator;

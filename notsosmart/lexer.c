@@ -1,7 +1,8 @@
 #include "headers.h"
 
 void insert_token(char* buffer, int bf_str, int bf_end, tok** line_tokens, int type) {
-	int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
+	int str_len = bf_end - bf_str + 1;
+	// printf("STRING LEN %d \n start %d \n end %d\n\n", str_len, bf_str, bf_end); //DEBUGG
 	*line_tokens = malloc(sizeof(tok));
 	(*line_tokens)->value = calloc(str_len, sizeof(char));
 	strncpy((*line_tokens)->value, &buffer[bf_str], str_len);
@@ -27,12 +28,12 @@ char* read_another_line(char* buffer) {
 }
 
 bool is_string(char* buffer, int bf_end) {
-	return isalpha(buffer[bf_end + 1])
-		|| isdigit(buffer[bf_end + 1])
-		|| buffer[bf_end + 1] == '_'
-		|| buffer[bf_end + 1] == '-'
-		|| buffer[bf_end + 1] == '.'
-		|| buffer[bf_end + 1] == '/';
+	return isalpha(buffer[bf_end])
+		|| isdigit(buffer[bf_end])
+		|| buffer[bf_end] == '_'
+		|| buffer[bf_end] == '-'
+		|| buffer[bf_end] == '.'
+		|| buffer[bf_end] == '/';
 }
 
 tok** lex_line(char* buffer) {
@@ -74,6 +75,10 @@ tok** lex_line(char* buffer) {
 			tk_ind++;
 
 		}
+		else if (buffer[bf_end] == '|' && buffer[bf_end + 1] != '|') {	// PIPE
+			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_pipe);
+			tk_ind++;
+		}
 		else if (buffer[bf_end] == ';') {			// Cmd separator
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_separator);
 			tk_ind++;
@@ -93,7 +98,7 @@ tok** lex_line(char* buffer) {
 			tk_ind++;
 		}
 		else if (is_string(buffer, bf_end)) {		// String
-			while (is_string(buffer, bf_end))
+			while (is_string(buffer, bf_end + 1))
 				bf_end++;
 
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_str);
@@ -101,7 +106,7 @@ tok** lex_line(char* buffer) {
 		}
 		else {
 			char* invalid_str = malloc(sizeof(char) * 64);
-			int str_len = &buffer[bf_end] - &buffer[bf_str] + 1;
+			int str_len = bf_end - bf_str + 1;
 			strncpy(invalid_str, &buffer[bf_str], str_len);
 			printf("LEX: invalid sign: [%s]\n", invalid_str);
 		}
