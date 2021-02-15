@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 		print_tokens(token_list); // DEBUG
 		// Parse the token to index
 		pn* root = parse(token_list);
-		print_pars(root); // DEBUG
+		//print_pars(root); // DEBUG
 		// Execut command
 		execute(root);
 
