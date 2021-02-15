@@ -141,9 +141,14 @@ int execute(pn* root) {
 		// Get the correct fd, based on the io operator
 		int* fds = get_io_fd(root);
 		file_fd = fds[0];
-		replace_this_fd = fds[1],
-			// Replace stdout with the new fd
-			dup2(file_fd, replace_this_fd);
+		replace_this_fd = fds[1];
+		// Handle wrong file path
+		if(file_fd == -1) {
+			printf("Errno: [%s]. Can't open file [%s]", strerror(errno), root->args[1]);
+			return -1;
+		}
+		// Replace stdout with the new fd
+		dup2(file_fd, replace_this_fd);
 		close(file_fd);
 		// Go on with program execution
 		int exec_res = execute(root->left);
