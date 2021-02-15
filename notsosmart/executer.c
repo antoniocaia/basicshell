@@ -31,17 +31,15 @@ int execute_cmd(char** cmd_args) {
 	}
 }
 
-// Run a cmd + args after replacing stdin and stdout with the correct pipe ends
-int execute_pipe(char** cmd_args, int io, int* pipe_ends) {
+int execute_pipe(pn* root, int io, int* pipe_ends) {
 	int pid;
 	int status;
 	pid = fork();
 	if (pid == 0) {
 		dup2(pipe_ends[io], io);
 		close(pipe_ends[1 - io]);	// Close the unused end
-		int e = execvp(cmd_args[0], cmd_args);
-		printf("Errno [%s] with command [%s] (%d)\n", strerror(errno), cmd_args[0], e);
-		exit(EXIT_FAILURE);
+		int e = execute(root);
+		exit(e);
 	}
 	else {
 		waitpid(pid, &status, 0);
@@ -103,10 +101,10 @@ int execute(pn* root) {
 		// pipe_ends[0]: standard input   pipe_ends[1]: standard output
 		int pipe_ends[2];
 		int p = pipe(pipe_ends);
-		execute_pipe(root->left->args, STDOUT_FILENO, pipe_ends);
+		execute_pipe(root->left, STDOUT_FILENO, pipe_ends);
 		// Close the pipe output channel, so that the second cmd doesn't wait for more data
 		close(pipe_ends[STDOUT_FILENO]);
-		return execute_pipe(root->rigth->args, STDIN_FILENO, pipe_ends);
+		return execute_pipe(root->rigth, STDIN_FILENO, pipe_ends);
 	}
 
 	return -1;
