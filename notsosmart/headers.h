@@ -34,8 +34,7 @@ struct parser_node {
 	struct parser_node* rigth;
 } typedef pn;
 
-// main.c
-int read_input(char** buffer);
+
 
 // builtin.c
 int b_cd(char** args);
@@ -50,6 +49,16 @@ static char* lookup_funct[] = {
 	"exit",
 	"exec"
 };
+
+// util.c
+bool is_io_par(int t);
+bool is_io_ex(int t);
+bool is_string(char* buffer, int bf_end);
+void print_tokens(tok** tl);
+void print_pars(pn* root);
+
+// main.c
+int read_input(char** buffer);
 
 // Builtin function references
 static int (*builtin_funct[])(char**) = {
@@ -76,6 +85,9 @@ int is_builtin(char* cmd);
 int execute_cmd(char** args);
 int execute(pn* root);
 
+
+
 // GLOBAL VAR
 // Mostly size of struct
 int g_token_number;
+

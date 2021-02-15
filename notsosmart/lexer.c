@@ -27,15 +27,6 @@ char* read_another_line(char* buffer) {
 	return new_buffer;
 }
 
-bool is_string(char* buffer, int bf_end) {
-	return isalpha(buffer[bf_end])
-		|| isdigit(buffer[bf_end])
-		|| buffer[bf_end] == '_'
-		|| buffer[bf_end] == '-'
-		|| buffer[bf_end] == '.'
-		|| buffer[bf_end] == '/';
-}
-
 tok** lex_line(char* buffer) {
 	int buffer_size = strlen(buffer) - 1;
 	// Remove end-line char (\n)
@@ -85,8 +76,8 @@ tok** lex_line(char* buffer) {
 			}
 			else {
 				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_ldm);
-				tk_ind++;
 			}
+			tk_ind++;
 		}
 		else if (buffer[bf_end] == '>') {								// IO redirect 
 			if (buffer[bf_end + 1] == '>') {
@@ -95,8 +86,8 @@ tok** lex_line(char* buffer) {
 			}
 			else {
 				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_rdm);
-				tk_ind++;
 			}
+			tk_ind++;
 		}
 		else if (buffer[bf_end] == ';') {			// Cmd separator
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_separator);

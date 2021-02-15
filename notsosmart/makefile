@@ -1,5 +1,8 @@
-main : main.o executer.o parser.o lexer.o builtin.o 
-	gcc -o notsosmart main.o executer.o parser.o lexer.o builtin.o
+main : util.o main.o executer.o parser.o lexer.o builtin.o 
+	gcc -o notsosmart util.o main.o executer.o parser.o lexer.o builtin.o
+
+util.o : headers.h util.c
+	gcc -c util.c
 
 main.o : headers.h main.c
 	gcc -c main.c

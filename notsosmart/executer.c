@@ -8,6 +8,35 @@ int is_builtin(char* cmd) {
 	return -1;
 }
 
+// Set up based on the io-operator the correct permission and fds
+int* get_io_fd(pn* root) {
+	int file_fd;
+	int replace_this_fd;
+
+	if (root->type == p_rdm) {
+		file_fd = open(root->args[1], O_CREAT | O_TRUNC | O_WRONLY, 0666);
+		// If a different fd is specified, set it, otherwise use the default one
+		replace_this_fd = root->args[2] == NULL ? 1 : atoi(root->args[2]);
+	}
+	else if (root->type == p_ldm) {
+		file_fd = open(root->args[1], O_RDONLY, 0666);
+		replace_this_fd = root->args[2] == NULL ? 0 : atoi(root->args[2]);
+	}
+	else if (root->type == p_lrdm) {
+		file_fd = open(root->args[1], O_CREAT | O_RDWR, 0666);
+		replace_this_fd = root->args[2] == NULL ? 0 : atoi(root->args[2]);
+	}
+	else if (root->type == p_rrdm) {
+		file_fd = open(root->args[1], O_CREAT | O_APPEND | O_WRONLY, 0666);
+		replace_this_fd = root->args[2] == NULL ? 1 : atoi(root->args[2]);
+	}
+
+	int* fds = calloc(2, sizeof(int));
+	fds[0] = file_fd;
+	fds[1] = replace_this_fd;
+	return fds;
+}
+
 // Run a standard cmd + args, no io redirection
 int execute_cmd(char** cmd_args) {
 	// Check if command is a builtin function; if true run it
@@ -46,7 +75,6 @@ int execute_pipe(pn* root, int io, int* pipe_ends) {
 		return status;
 	}
 }
-
 
 int execute_shubshell(pn* root) {
 	pid_t pid;
@@ -105,16 +133,17 @@ int execute(pn* root) {
 		close(pipe_ends[STDOUT_FILENO]);
 		return execute_pipe(root->rigth, STDIN_FILENO, pipe_ends);
 	}
-	else if (root->type == p_rdm) {
+	else if (is_io_ex(root->type)) {
 		int file_fd;
-		int fd_to_replace;
-		file_fd = open(root->args[1], O_CREAT | O_TRUNC | O_WRONLY, 0666);
-		// If a different fd is specified, set it, otherwise use the default one
-		fd_to_replace = root->args[2] == NULL ? 1 : atoi(root->args[2]);
+		int replace_this_fd;
 		// Save stdout so we can restore it later
 		int saved_stdout = dup(STDOUT_FILENO);
-		// Replace stdout with the new fd
-		dup2(file_fd, fd_to_replace);
+		// Get the correct fd, based on the io operator
+		int* fds = get_io_fd(root);
+		file_fd = fds[0];
+		replace_this_fd = fds[1],
+			// Replace stdout with the new fd
+			dup2(file_fd, replace_this_fd);
 		close(file_fd);
 		// Go on with program execution
 		int exec_res = execute(root->left);

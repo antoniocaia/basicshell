@@ -5,10 +5,31 @@ pn* parse(tok** tokens) {
 	return root;
 }
 
+// Set up the correct node's parameters based on the io operator
+void setup_io_pars(pn* node, int type) {
+	if (type == t_rdm) {
+		node->type = p_rdm;
+		(node->args)[0] = ">";
+	}
+	else if (type == t_ldm) {
+		node->type = p_ldm;
+		(node->args)[0] = "<";
+	}
+	else if (type == t_rrdm) {
+		node->type = p_rrdm;
+		(node->args)[0] = ">>";
+	}
+	else if (type == t_lrdm) {
+		node->type = p_lrdm;
+		(node->args)[0] = "<>";
+	}
+}
+
 pn* parsing(tok** tokens, int tok_start, int tok_end) {
 	// No more tokens
 	if (tok_start > tok_end) return NULL;
 
+	// Basic init
 	pn* node = malloc(sizeof(pn));
 	node->type = p_null;
 	node->left = NULL;
@@ -83,12 +104,11 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 	// Check for io redirection
 	tok_current = tok_start;
 	while (tok_current <= tok_end) {
-		if (tokens[tok_current]->type == t_rdm) {
-			node->type = p_rdm;
+		if (is_io_par(tokens[tok_current]->type)) {
 			node->args = calloc(4, sizeof(char*));
-			(node->args)[0] = ">";
+			// Setup parametric values
+			setup_io_pars(node, tokens[tok_current]->type);
 			(node->args)[1] = tokens[tok_current + 1]->value; // Next token is the file target
-
 			int offset = 0;
 			// Check if there is an ioarg
 			if (tokens[tok_current - 1]->type == t_ioarg) {
@@ -120,20 +140,3 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 	return node;
 }
 
-// DEBUGG
-char** toks_to_strings(tok** tokens) {
-	int tks_ind = 0;
-	int args_ind = 0;
-	// A command can support max 15 args
-	char** args = calloc(16, sizeof(char*));
-	args[args_ind] = tokens[tks_ind]->value;
-	args_ind++;
-	tks_ind++;
-
-	while (tokens[tks_ind] != 0) {
-		args[args_ind] = tokens[tks_ind]->value;
-		args_ind++;
-		tks_ind++;
-	}
-	return args;
-}

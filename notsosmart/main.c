@@ -1,31 +1,5 @@
 #include "headers.h"
 
-// DEBUG
-// TEST TOKEN
-void print_tokens(tok** tl) {
-	int i = 0;
-	while (tl[i] != NULL) {
-		printf("[%s][%d]   ", tl[i]->value, tl[i]->type);
-		i++;
-	}
-	printf("\n\n");
-}
-
-// DEBUG
-// TEST NODE
-void print_pars(pn* root) {
-	if (root == NULL) return;
-	printf("Type [%d]\n", root->type);
-	int i = 0;
-	while ((root->args)[i] != NULL) {
-		printf("[%s]", (root->args)[i]);
-		i++;
-	}
-	printf("\n\n");
-	print_pars(root->left);
-	print_pars(root->rigth);
-}
-
 int read_input(char** buffer) {
 	size_t buffer_size = 0;
 	return getline(buffer, &buffer_size, stdin);
@@ -62,8 +36,3 @@ int main(int argc, char** argv) {
 	}
 	exit(EXIT_SUCCESS);
 }
-
-// USE 
-// ls | cat
-// ls | cat > test
-// TO TEST PIPE
