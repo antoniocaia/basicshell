@@ -4,8 +4,8 @@
 // TEST TOKEN
 void print_tokens(tok** tl) {
 	int i = 0;
-	while (tl[i] != 0) {
-		printf("[%s]", tl[i]->value);
+	while (tl[i] != NULL) {
+		printf("[%s][%d]   ", tl[i]->value, tl[i]->type);
 		i++;
 	}
 	printf("\n\n");
@@ -17,7 +17,7 @@ void print_pars(pn* root) {
 	if (root == NULL) return;
 	printf("Type [%d]\n", root->type);
 	int i = 0;
-	while ((root->args)[i] != 0) {
+	while ((root->args)[i] != NULL) {
 		printf("[%s]", (root->args)[i]);
 		i++;
 	}

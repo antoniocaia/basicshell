@@ -73,28 +73,52 @@ tok** lex_line(char* buffer) {
 			bf_end++;
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_or);
 			tk_ind++;
-
 		}
 		else if (buffer[bf_end] == '|' && buffer[bf_end + 1] != '|') {	// PIPE
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_pipe);
 			tk_ind++;
+		}
+		else if (buffer[bf_end] == '<') {								// IO redirect 
+			if (buffer[bf_end + 1] == '>') {
+				bf_end++;
+				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_lrdm);
+			}
+			else {
+				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_ldm);
+				tk_ind++;
+			}
+		}
+		else if (buffer[bf_end] == '>') {								// IO redirect 
+			if (buffer[bf_end + 1] == '>') {
+				bf_end++;
+				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_rrdm);
+			}
+			else {
+				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_rdm);
+				tk_ind++;
+			}
 		}
 		else if (buffer[bf_end] == ';') {			// Cmd separator
 			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_separator);
 			tk_ind++;
 		}
 		else if (buffer[bf_end] == '(') {			// brackets (subshell)
-			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_leftb);
+			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_leftbrack);
 			tk_ind++;
 		}
 		else if (buffer[bf_end] == ')') {			// brackets (subshell)
-			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_rigthb);
+			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_rigthbrack);
 			tk_ind++;
 		}
 		else if (isdigit(buffer[bf_end])) {			// Number
 			while (isdigit(buffer[bf_end + 1]))
 				bf_end++;
-			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_number);
+			// While scanning a number, if the next char that is not a digit is a '<' or '>'
+			// then the number is an arg for the io redirector
+			if (buffer[bf_end + 1] == '<' || buffer[bf_end + 1] == '>')
+				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_ioarg);
+			else
+				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_number);
 			tk_ind++;
 		}
 		else if (is_string(buffer, bf_end)) {		// String

@@ -93,11 +93,10 @@ int execute(pn* root) {
 		return 0;
 	}
 	else if (root->type == p_bang) {
-		return execute(root->left) != 0 ? 0 : 1;
+		return execute(root->rigth) != 0 ? 0 : 1;
 	}
 	else if (root->type == p_pipe) {
 		// |: redirect stdin and stdout using pipe. Not sure about multiple pipe yet, or more complex cmd
-
 		// pipe_ends[0]: standard input   pipe_ends[1]: standard output
 		int pipe_ends[2];
 		int p = pipe(pipe_ends);
@@ -105,6 +104,24 @@ int execute(pn* root) {
 		// Close the pipe output channel, so that the second cmd doesn't wait for more data
 		close(pipe_ends[STDOUT_FILENO]);
 		return execute_pipe(root->rigth, STDIN_FILENO, pipe_ends);
+	}
+	else if (root->type == p_rdm) {
+		int file_fd;
+		int fd_to_replace;
+		file_fd = open(root->args[1], O_CREAT | O_TRUNC | O_WRONLY, 0666);
+		// If a different fd is specified, set it, otherwise use the default one
+		fd_to_replace = root->args[2] == NULL ? 1 : atoi(root->args[2]);
+		// Save stdout so we can restore it later
+		int saved_stdout = dup(STDOUT_FILENO);
+		// Replace stdout with the new fd
+		dup2(file_fd, fd_to_replace);
+		close(file_fd);
+		// Go on with program execution
+		int exec_res = execute(root->left);
+		// Restore stdout
+		dup2(saved_stdout, STDOUT_FILENO);
+		close(saved_stdout);
+		return exec_res;
 	}
 
 	return -1;

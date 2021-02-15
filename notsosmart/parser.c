@@ -15,26 +15,26 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 	node->rigth = NULL;
 
 	// Subshell (round brackets)
-	if (tokens[tok_start]->type == t_leftb && tokens[tok_end]->type == t_rigthb) {
+	if (tokens[tok_start]->type == t_leftbrack && tokens[tok_end]->type == t_rigthbrack) {
 		// If all the current segment is between two brackets we can process it a normal sequence
 		node->type = p_subshell;
-		node->args = calloc(1, sizeof(char*));
+		node->args = calloc(2, sizeof(char*));
 		(node->args)[0] = "()";
 		node->left = parsing(tokens, tok_start + 1, tok_end - 1);
 		return node;
 	}
 
-	// Check for every binary token that separate multiple commands
+	// Check for every binary operator that separate multiple commands
 	int tok_current = tok_start;
 	while (tok_current <= tok_end) {
 		// When finding round brackets, we skip every token in the middle
-		if (tokens[tok_current]->type == t_leftb) {
-			while (tokens[tok_current]->type != t_rigthb)
+		if (tokens[tok_current]->type == t_leftbrack) {
+			while (tokens[tok_current]->type != t_rigthbrack)
 				tok_current++;
 		}
 		else if (tokens[tok_current]->type == t_pipe) {
 			node->type = p_pipe;
-			node->args = calloc(1, sizeof(char*));
+			node->args = calloc(2, sizeof(char*));
 			(node->args)[0] = "|";
 
 			node->left = parsing(tokens, tok_start, tok_current - 1);
@@ -43,7 +43,7 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 		}
 		else if (tokens[tok_current]->type == t_separator) {
 			node->type = p_separator;
-			node->args = calloc(1, sizeof(char*));
+			node->args = calloc(2, sizeof(char*));
 			(node->args)[0] = ";";
 
 			node->left = parsing(tokens, tok_start, tok_current - 1);
@@ -52,7 +52,7 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 		}
 		else if (tokens[tok_current]->type == t_and) {
 			node->type = p_and;
-			node->args = calloc(1, sizeof(char*));
+			node->args = calloc(2, sizeof(char*));
 			(node->args)[0] = "&&";
 
 			node->left = parsing(tokens, tok_start, tok_current - 1);
@@ -61,7 +61,7 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 		}
 		else if (tokens[tok_current]->type == t_or) {
 			node->type = p_or;
-			node->args = calloc(1, sizeof(char*));
+			node->args = calloc(2, sizeof(char*));
 			(node->args)[0] = "||";
 
 			node->left = parsing(tokens, tok_start, tok_current - 1);
@@ -74,10 +74,34 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 	// Check for bang '!' operator
 	if (tokens[tok_start]->type == t_bang) {
 		node->type = p_bang;
-		node->args = calloc(1, sizeof(char*));
+		node->args = calloc(2, sizeof(char*));
 		(node->args)[0] = "!";
-		node->left = parsing(tokens, tok_start + 1, tok_end);
+		node->rigth = parsing(tokens, tok_start + 1, tok_end);
 		return node;
+	}
+
+	// Check for io redirection
+	tok_current = tok_start;
+	while (tok_current <= tok_end) {
+		if (tokens[tok_current]->type == t_rdm) {
+			node->type = p_rdm;
+			node->args = calloc(4, sizeof(char*));
+			(node->args)[0] = ">";
+			(node->args)[1] = tokens[tok_current + 1]->value; // Next token is the file target
+
+			int offset = 0;
+			// Check if there is an ioarg
+			if (tokens[tok_current - 1]->type == t_ioarg) {
+				(node->args)[2] = tokens[tok_current - 1]->value;
+				offset = 1;
+			}
+			else
+				(node->args)[2] = NULL;
+
+			node->left = parsing(tokens, tok_start, tok_current - 1 - offset);
+			return node;
+		}
+		tok_current++;
 	}
 
 	// No "special token" means that what remains is commands and args
