@@ -74,6 +74,10 @@ tok** lex_line(char* buffer) {
 				bf_end++;
 				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_lrdm);
 			}
+			else if (buffer[bf_end + 1] == '&') {
+				bf_end++;
+				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_ldmend);
+			}
 			else {
 				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_ldm);
 			}
@@ -87,6 +91,11 @@ tok** lex_line(char* buffer) {
 			else {
 				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_rdm);
 			}
+			tk_ind++;
+		}
+		else if (buffer[bf_end] == '&' && buffer[bf_end + 1] == '>') {
+			bf_end++;
+			insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_endrdm);
 			tk_ind++;
 		}
 		else if (buffer[bf_end] == ';') {			// Cmd separator
@@ -104,9 +113,9 @@ tok** lex_line(char* buffer) {
 		else if (isdigit(buffer[bf_end])) {			// Number
 			while (isdigit(buffer[bf_end + 1]))
 				bf_end++;
-			// While scanning a number, if the next char that is not a digit is a '<' or '>'
+			// While scanning a number, if the next char that is not a digit is a '<' or '>' or '&'
 			// then the number is an arg for the io redirector
-			if (buffer[bf_end + 1] == '<' || buffer[bf_end + 1] == '>')
+			if (buffer[bf_end + 1] == '<' || buffer[bf_end + 1] == '>' || buffer[bf_end + 1] == '&')
 				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_ioarg);
 			else
 				insert_token(buffer, bf_str, bf_end, &tokens[tk_ind], t_number);

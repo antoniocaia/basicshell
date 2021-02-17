@@ -25,10 +25,10 @@ int main(int argc, char** argv) {
 		g_token_number = 0;
 		// Lex the line in token 
 		tok** token_list = lex_line(buffer);
-		print_tokens(token_list); 				// DEBUG
+		//print_tokens(token_list); 				// DEBUG
 		// Parse the token to index
 		pn* root = parse(token_list);
-		print_pars(root); 						// DEBUG
+		//print_pars(root); 						// DEBUG
 		// Execut command
 		execute(root);
 

@@ -23,7 +23,56 @@ void setup_io_pars(pn* node, int type) {
 		node->type = p_lrdm;
 		(node->args)[0] = "<>";
 	}
+	else if (type == t_endrdm) {
+		node->type = p_endrdm;
+		(node->args)[0] = "&>";
+	}
+	else if (type == t_ldmend) {
+		node->type = p_ldmend;
+		(node->args)[0] = "<&";
+	}
+
 }
+
+// // NOT GOING TO IMPLEMENT <& AND &> YET
+// // When parsing a cmd fd modifier ( <&, &> ) can be everywhere, so they must processed before the current cmd
+// pn* pre_parse_cmd_fds(tok** tokens, int tok_start, int tok_end, pn* end_node) {
+// 	// Scan the current cmd because fd modifier can be everywhere in the cmd
+// 	// Es  0<&- 2<&- ./list-fds 	 0<&- ./list-fds 2<&- 	 ./list-fds 0<&- 2<&-	all have the same output
+
+// 	// Basic init
+// 	pn* node = malloc(sizeof(pn));
+// 	node->type = p_null;
+// 	node->left = NULL;
+// 	node->rigth = NULL;
+
+// 	int tok_current = tok_start;
+// 	while (tok_current <= tok_end) {	
+// 		if (tokens[tok_current]->type == t_endrdm || tokens[tok_current]->type == t_ldmend) {
+// 			node->args = calloc(4, sizeof(char*));
+// 			// Setup parametric values
+// 			setup_io_pars(node, tokens[tok_current]->type);
+// 			(node->args)[1] = tokens[tok_current + 1]->value; // Next token is the file target
+// 			int offset = 0;
+// 			// Check if there is an ioarg
+// 			if (tokens[tok_current - 1]->type == t_ioarg) {
+// 				(node->args)[2] = tokens[tok_current - 1]->value;
+// 				offset = 1;
+// 			}
+// 			else
+// 				(node->args)[2] = NULL;
+
+// 			// Sequentially scan for all the fds mod, left to rigth
+// 			node->rigth = pre_parse_cmd_fds(tokens, tok_current + 2, tok_end, end_node);
+// 			return node;
+// 		}
+// 		tok_current++;
+// 	}
+
+// 	return node;
+
+
+// }
 
 pn* parsing(tok** tokens, int tok_start, int tok_end) {
 	// No more tokens
@@ -44,7 +93,6 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 		node->left = parsing(tokens, tok_start + 1, tok_end - 1);
 		return node;
 	}
-
 	// Check for every binary operator that separate multiple commands
 	int tok_current = tok_start;
 	while (tok_current <= tok_end) {
@@ -53,15 +101,7 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 			while (tokens[tok_current]->type != t_rigthbrack)
 				tok_current++;
 		}
-		else if (tokens[tok_current]->type == t_pipe) {
-			node->type = p_pipe;
-			node->args = calloc(2, sizeof(char*));
-			(node->args)[0] = "|";
 
-			node->left = parsing(tokens, tok_start, tok_current - 1);
-			node->rigth = parsing(tokens, tok_current + 1, tok_end);
-			return node;
-		}
 		else if (tokens[tok_current]->type == t_separator) {
 			node->type = p_separator;
 			node->args = calloc(2, sizeof(char*));
@@ -92,6 +132,7 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 		tok_current++;
 	}
 
+
 	// Check for bang '!' operator
 	if (tokens[tok_start]->type == t_bang) {
 		node->type = p_bang;
@@ -101,9 +142,25 @@ pn* parsing(tok** tokens, int tok_start, int tok_end) {
 		return node;
 	}
 
+	// Had to check for pipe AFTER '!' because '!' cheange the value of a whole pipe chain	
+	tok_current = tok_start;
+	while (tok_current <= tok_end) {
+		if (tokens[tok_current]->type == t_pipe) {
+			node->type = p_pipe;
+			node->args = calloc(2, sizeof(char*));
+			(node->args)[0] = "|";
+
+			node->left = parsing(tokens, tok_start, tok_current - 1);
+			node->rigth = parsing(tokens, tok_current + 1, tok_end);
+			return node;
+		}
+		tok_current++;
+	}
+
 	// Check for io redirection
 	tok_current = tok_start;
 	while (tok_current <= tok_end) {
+		// <, >, <>, >>
 		if (is_io_par(tokens[tok_current]->type)) {
 			node->args = calloc(4, sizeof(char*));
 			// Setup parametric values

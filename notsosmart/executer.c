@@ -145,6 +145,31 @@ int execute(pn* root) {
 		close(save_std);
 		return exec_res;
 	}
+	else if (root->type == p_endrdm || root->type == p_ldmend) {
+		// Default fd
+		int replace_this_fd = root->type == p_endrdm ? 1 : 0;	// Se non è zuppa è panbagnato
+		// Check if a different fd is specified instead of the default one
+		replace_this_fd = root->args[2] == NULL ? replace_this_fd : atoi(root->args[2]);
+		// Check if the input arg is - (close)
+		if (root->args[1] == "-") {
+			close(replace_this_fd);
+		}	// Otherwise we replace the target fd with the arg
+		else {
+			int new_fd = atoi(root->args[1]);
+			dup2(new_fd, replace_this_fd);
+			close(new_fd);
+		}
+		// Go on with program execution
+		int exec_res1 = execute(root->left);
+		int exec_res2 = execute(root->rigth);
+
+		return exec_res1;
+	}
+	else {
+		printf("No handler for the current type: [%d][%s]\n", root->type, root->args[0]);
+	}
 
 	return -1;
 }
+
+//./list-fds 0<&-
