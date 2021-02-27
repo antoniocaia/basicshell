@@ -1,6 +1,4 @@
-# notsosmart shell
-
-Writing a shell following this [workshop](https://github.com/tokenrove/build-your-own-shell/blob/master/README.md) materials.
+#### Writing a shell following this [workshop](https://github.com/tokenrove/build-your-own-shell/blob/master/README.md) materials.
 
 - [x] stage_1
 - [x] stage_2
