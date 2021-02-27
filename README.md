@@ -16,6 +16,6 @@ Stage_1:
 Stage_2:
 - Pipe `|`
 - `<`, `>`, `>>`, `<>`
-	<!-- - `<&`, `&>` -->
+- ~~`<&`, `&>`~~ (*Had some problems here*)
 
 Stage_3:

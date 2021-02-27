@@ -34,45 +34,19 @@ void setup_io_pars(pn* node, int type) {
 
 }
 
-// // NOT GOING TO IMPLEMENT <& AND &> YET
-// // When parsing a cmd fd modifier ( <&, &> ) can be everywhere, so they must processed before the current cmd
-// pn* pre_parse_cmd_fds(tok** tokens, int tok_start, int tok_end, pn* end_node) {
-// 	// Scan the current cmd because fd modifier can be everywhere in the cmd
-// 	// Es  0<&- 2<&- ./list-fds 	 0<&- ./list-fds 2<&- 	 ./list-fds 0<&- 2<&-	all have the same output
 
-// 	// Basic init
-// 	pn* node = malloc(sizeof(pn));
-// 	node->type = p_null;
-// 	node->left = NULL;
-// 	node->rigth = NULL;
+/* 
+The parser is probably the most delicate part of the shell.
+the order in which the instructions are executed is not random: 
+- check for round-brackets (subshell) so at execution time we create the subshell before executing every command between brackets
+- check for "binary operator" that separate and connect different commands
+At this point we have segments of the original input containing: 1. '!' 2. IO redirectors as '<', etc 3. Pipes 4. "standard" command
+(Can't put pipe with the other "binary operator" (the logic would be the same) because how it interact with '!': 
+'!' considere a pipeline as a unic command with one unique output)
+- check for '!'
+- check for pipes
 
-// 	int tok_current = tok_start;
-// 	while (tok_current <= tok_end) {	
-// 		if (tokens[tok_current]->type == t_endrdm || tokens[tok_current]->type == t_ldmend) {
-// 			node->args = calloc(4, sizeof(char*));
-// 			// Setup parametric values
-// 			setup_io_pars(node, tokens[tok_current]->type);
-// 			(node->args)[1] = tokens[tok_current + 1]->value; // Next token is the file target
-// 			int offset = 0;
-// 			// Check if there is an ioarg
-// 			if (tokens[tok_current - 1]->type == t_ioarg) {
-// 				(node->args)[2] = tokens[tok_current - 1]->value;
-// 				offset = 1;
-// 			}
-// 			else
-// 				(node->args)[2] = NULL;
-
-// 			// Sequentially scan for all the fds mod, left to rigth
-// 			node->rigth = pre_parse_cmd_fds(tokens, tok_current + 2, tok_end, end_node);
-// 			return node;
-// 		}
-// 		tok_current++;
-// 	}
-
-// 	return node;
-
-
-// }
+*/
 
 pn* parsing(tok** tokens, int tok_start, int tok_end) {
 	// No more tokens
